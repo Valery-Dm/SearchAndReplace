@@ -3,99 +3,111 @@
  */
 package dmv.desktop.searchandreplace.service;
 
-import dmv.desktop.searchandreplace.model.Exclusions;
+import java.util.concurrent.Executor;
+import java.util.stream.Stream;
 
 /**
  * <tt>SearchAndReplace.java</tt> API describes methods
  * for 'search and replace' operation that can be made
- * upon an arbitrary resource T (resource type will be specified 
- * by a concrete implementation).
- * Types of what to find and replace are strings.
- * Results of specified type R will be returned upon call
+ * upon an arbitrary resource W 'Where to search' (resource 
+ * type will be specified by a concrete implementation).
+ * Using profile H 'How to search and replace'.
+ * 'Results' of specified type R will be returned upon call
  * on {@link #preview()} and {@link #replace()} methods
  * @author dmv
  * @since 2016 December 31
  */
-public interface SearchAndReplace<T, R> {
+public interface SearchAndReplace<W, H, R> {
     
     /**
-     * Get current root element 
+     * Describes state of current operation.
+     * Can be used for caching and cache overriding
+     * operations or the like and for a feedback.
+     */
+    static enum State {
+        BEFORE_FIND, AFTER_FOUND, REPLACED,
+        PARTIALLY_REPLACED, INTERRUPTED
+    }
+    
+    /**
+     * Get current root element W
+     * Describing 'Where to search'
      * @return Current root element
      */
-    T getRootElement();
+    W getRootElement();
     
     /**
-     * Set root element 
+     * Set root 'Where to search' element 
      * (like root folder or database table)
      * to be searched for replacements. It can't be null
      * @param root Root element
      * @throws NullPointerException if given argument is null
      */
-    void setRootElement(T root);
+    void setRootElement(W root);
 
     /**
-     * Get current string needed to be found
-     * @return current string to be found
+     * Get current profile describing what is needed to be found
+     * and what to put in place of it and any additional info
+     * of how to read and write to the 'Where' resource
+     * @return current 'How to search and replace' profile
      */
-    String getToFind();
+    H getProfile();
     
     /**
-     * Set string to be found and replaced.
-     * It is not appropriate to have null
-     * or empty string in this role
-     * @param toFind String to be found
-     * @throws IllegalArgumentException if given argument is null or empty
+     * Set profile describing what is needed to be found
+     * and what to put in place of it and any additional info
+     * of how to read and write to the 'Where' resource
+     * It is not appropriate to have null or empty string in this role
+     * @param profile 'How to search and replace' profile
+     * @throws NullPointerException if given argument is null
      */
-    void setToFind(String toFind);
+    void setProfile(H profile);
     
-    /**
-     * Get current string that will be placed instead
-     * of toFind one, or null if no replacements needed
-     * @return current string to be replaced with, or null if
-     *         it was not specified before or previous set 
-     *         was given null or empty string
-     */
-    String getReplaceWith();
     
-    /**
-     * Set new string that will be placed instead 
-     * of toFind. If this object is null or empty
-     * means that found toFind strings will be removed
-     * (i.e. replaced by 0-length strings).
-     * @param replaceWith String to be replaced with
-     */
-    void setReplaceWith(String replaceWith);
-    
-    /**
-     * Get current exclusions: suffixes and reversed prefixes
-     * of toFind word. Those combinations will not be replaced
-     * during 'search and replace' routine.
-     * @return Current exclusions
-     */
-    Exclusions getExclusions();
-    
-    /**
-     * Set new exclusions: suffixes and reversed prefixes
-     * of toFind word. Those combinations will not be replaced.
-     * Current exclusion will be overwritten by this set, and
-     * if given argument is null or empty nothing will be excluded
-     * by the next 'search and replace' operation
-     * @param exclusions New set of exclusions
-     */
-    void setExclusions(Exclusions exclusions);
     
     /**
      * Search for spots to be replaced and serve possible results
      * without actual resource modification.
      * @return Results of future replacements
+     * @throws IllegalStateException if root element or profile
+     *                               was not given prior to call
+     *                               to this method
      */
-    R preview();
+    Stream<R> preview();
+    
+    /**
+     * Search for spots to be replaced and serve possible results
+     * without actual resource modification. This method will
+     * execute using provided Executor (must not be null).
+     * @return Results of future replacements
+     * @throws NullPointerException if given argument is null
+     * @throws IllegalStateException if root element or profile
+     *                               was not given prior to call
+     *                               to this method
+     */
+    Stream<R> preview(Executor exec);
     
     /**
      * Get actual results of what has been changed (may differ
      * from that returned by {@link #preview()} method since
      * resources may become unavailable.
      * @return Results of done replacements
+     * @throws IllegalStateException if root element or profile
+     *                               was not given prior to call
+     *                               to this method
      */
-    R replace();
+    Stream<R> replace();
+    
+    /**
+     * Get actual results of what has been changed (may differ
+     * from that returned by {@link #preview()} method since
+     * resources may become unavailable. This method will
+     * execute using provided Executor (must not be null).
+     * @return Results of done replacements
+     * @throws NullPointerException if given argument is null
+     * @throws IllegalStateException if root element or profile
+     *                               was not given prior to call
+     *                               to this method
+     */
+    Stream<R> replace(Executor exec);
 }

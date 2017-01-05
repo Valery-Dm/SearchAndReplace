@@ -10,8 +10,6 @@ import java.util.*;
 import org.junit.Before;
 import org.junit.Test;
 
-import dmv.desktop.searchandreplace.model.Exclusions;
-
 
 public class ExclusionsTest {
     
@@ -49,7 +47,7 @@ public class ExclusionsTest {
         exclude.add(toFind + suffix);
         exclude.add(toFind + otherSuffix);
         
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
         
         checkSuffixes();
     }
@@ -105,7 +103,7 @@ public class ExclusionsTest {
         exclude.add(prefix + toFind);
         exclude.add(otherPrefix + toFind);
         
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
         
         checkPrefixes();
     }
@@ -147,38 +145,38 @@ public class ExclusionsTest {
     
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg1() {
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg2() {
         toFind = "";
         exclude.add("not");
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg3() {
         exclude.add("notFindMe");
         exclude.add("notfindMe");
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg4() {
         exclude.add("notFindMe");
         exclude.add(null);
-        target = new Exclusions(exclude, toFind);
+        target = new Exclusions(exclude, toFind, true);
     }
 
     @Test(expected=NullPointerException.class)
     public void nullArg1() {
-        target = new Exclusions(null, toFind);
+        target = new Exclusions(null, toFind, true);
     }
 
     @Test(expected=NullPointerException.class)
     public void nullArg2() {
-        target = new Exclusions(exclude, null);
+        target = new Exclusions(exclude, null, true);
     }
 
     @Test(expected=NullPointerException.class)

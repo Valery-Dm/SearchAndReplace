@@ -88,13 +88,6 @@ public class SearchFolderTest {
     }
 
     @Test
-    public void testSetFileNames() {
-        assertFalse(target.isFileNames());
-        target.setFileNames(true);
-        assertTrue(target.isFileNames());
-    }
-
-    @Test
     public void testSetSubfolders() {
         assertFalse(target.isSubfolders());
         target.setSubfolders(true);

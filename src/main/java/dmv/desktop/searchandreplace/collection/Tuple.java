@@ -221,6 +221,10 @@ public class Tuple<F, L> {
         
         return true;
     }
-    
+
+    @Override
+    public String toString() {
+        return String.format("Tuple [first=%s, last=%s]", first, last);
+    }
     
 }

@@ -101,23 +101,6 @@ public class SearchFolderImpl implements SearchFolder {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFolder#setFileNames(boolean)
-     */
-    @Override
-    public SearchFolderImpl setFileNames(boolean fileNames) {
-        this.fileNames = fileNames;
-        return this;
-    }
-
-    /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFolder#isFileNames()
-     */
-    @Override
-    public boolean isFileNames() {
-        return fileNames;
-    }
-
-    /* (non-Javadoc)
      * @see dmv.desktop.searchandreplace.model.SearchFolder#setSubfolders(boolean)
      */
     @Override

@@ -146,7 +146,7 @@ public class ReplacerTest {
         Set<String> set = new HashSet<>();
         for (String exclusion : list)
             set.add(exclusion);
-        exclusions = new Exclusions(set, toFind);
+        exclusions = new Exclusions(set, toFind, true);
     }
     
     private void writeResult(List<String> result) throws IOException {

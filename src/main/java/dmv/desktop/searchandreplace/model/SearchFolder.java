@@ -19,9 +19,9 @@ public interface SearchFolder {
     
     /**
      * Default Charset that will be used for reading and writing
-     * is {@link StandardCharsets#UTF_16}
+     * file names is {@link StandardCharsets#UTF_16}
      */
-    static final Charset defaultCharset = StandardCharsets.UTF_16;
+    static final Charset defaultCharset = StandardCharsets.UTF_16; 
 
     /**
      * Set root folder to be search inside
@@ -71,18 +71,6 @@ public interface SearchFolder {
      * @return A PathMatcher object with currently added file types
      */
     PathMatcher getFileTypes();
-    
-    /**
-     * Set if algorithm should search and replace file names
-     * @param fileNames true if file names will also be modified
-     */
-    SearchFolder setFileNames(boolean fileNames);
-    
-    /**
-     * If file names set to be modified by this search
-     * @return true if file names are about to be modified
-     */
-    boolean isFileNames();
     
     /**
      * Set if subfolders should also be searched

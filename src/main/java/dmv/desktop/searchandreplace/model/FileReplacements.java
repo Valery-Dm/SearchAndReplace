@@ -24,6 +24,8 @@ import dmv.desktop.searchandreplace.collection.Triple;
 public class FileReplacements {
 
     private Path filePath;
+    private SearchFile profile;
+    
     private String fileName;
     private String replaceWith;
     private String mofifiedName;
@@ -31,6 +33,14 @@ public class FileReplacements {
     private List<String> modifiedContent;
     private List<Triple<Integer, Integer, Integer>> fileNameMarkers;
     private List<Triple<Integer, Integer, Integer>> fileContentMarkers;
+    
+    
+    public FileReplacements(Path file, SearchFile profile) {
+        filePath = file;
+        fileName = file.getFileName().toString();
+        this.profile = profile;
+        content = new ArrayList<>();
+    }
     
     /**
      * Create empty collection for a given file
@@ -73,43 +83,43 @@ public class FileReplacements {
     }
     
     public String getModifiedName() {
-        if (mofifiedName != null)
-            return mofifiedName;
-        if (fileNameMarkers.size() > 0) {
-            StringBuilder newName = new StringBuilder(fileName);
-            fileNameMarkers.forEach(marker -> {
-                newName.replace(marker.getSecond(), marker.getThird(), replaceWith);
-            });
-            mofifiedName = newName.toString();
-            return mofifiedName;
-        }
+//        if (mofifiedName != null)
+//            return mofifiedName;
+//        if (fileNameMarkers.size() > 0) {
+//            StringBuilder newName = new StringBuilder(fileName);
+//            fileNameMarkers.forEach(marker -> {
+//                newName.replace(marker.getSecond(), marker.getThird(), replaceWith);
+//            });
+//            mofifiedName = newName.toString();
+//            return mofifiedName;
+//        }
         return fileName;
     }
     
     public List<String> getModifiedContent() {
-        if (modifiedContent != null)
-            return modifiedContent;
-        if (content.size() > 0 && fileContentMarkers.size() > 0) {
-            modifiedContent = new ArrayList<>();
-            String line;
-            StringBuilder newLine;
-            int m = 0;
-            Triple<Integer, Integer, Integer> marker = fileContentMarkers.get(m);
-            for (int l = 0; l < content.size(); l++) {
-                line = content.get(l);
-                if (marker.getFirst() == l) {
-                    newLine = new StringBuilder(line);
-                    do {
-                        newLine.replace(marker.getSecond(), marker.getThird(), replaceWith);
-                        marker = fileContentMarkers.get(++m);;
-                    } while (marker.getFirst() == l);
-                    modifiedContent.add(newLine.toString());
-                } else {
-                    modifiedContent.add(line);
-                }
-            }
-            
-        }
+//        if (modifiedContent != null)
+//            return modifiedContent;
+//        if (content.size() > 0 && fileContentMarkers.size() > 0) {
+//            modifiedContent = new ArrayList<>();
+//            String line;
+//            StringBuilder newLine;
+//            int m = 0;
+//            Triple<Integer, Integer, Integer> marker = fileContentMarkers.get(m);
+//            for (int l = 0; l < content.size(); l++) {
+//                line = content.get(l);
+//                if (marker.getFirst() == l) {
+//                    newLine = new StringBuilder(line);
+//                    do {
+//                        newLine.replace(marker.getSecond(), marker.getThird(), replaceWith);
+//                        marker = fileContentMarkers.get(++m);;
+//                    } while (marker.getFirst() == l);
+//                    modifiedContent.add(newLine.toString());
+//                } else {
+//                    modifiedContent.add(line);
+//                }
+//            }
+//            
+//        }
         return content;
     }
 }

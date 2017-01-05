@@ -226,7 +226,7 @@ public class FilesWallker {
         
         private Exclusions setExclusions() {
             if (exclusions != null) 
-                return new Exclusions(exclusions, toFind);
+                return new Exclusions(exclusions, toFind, true);
             return null;
         }
         

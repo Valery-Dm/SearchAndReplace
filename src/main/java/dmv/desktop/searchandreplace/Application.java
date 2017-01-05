@@ -64,7 +64,7 @@ public class Application {
         toFind = "HamiltonianCycle";
         replaceWith = "HamiltonianPath";
         exclude = Arrays.asList(new String[] {"isHamiltonianCycleExist", "getHamiltonianCycle"});
-        exclusions = new Exclusions(new HashSet<>(exclude), toFind);
+        exclusions = new Exclusions(new HashSet<>(exclude), toFind, true);
         
         renameIn(Paths.get(rootDirectoryName));
         

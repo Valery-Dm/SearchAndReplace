@@ -41,7 +41,9 @@ public class FileFinder implements Consumer<FileReplacements> {
         Objects.requireNonNull(replacements);
         this.replacements = replacements;
         synchronized (this.replacements) {
-            readFile();
+            //readFile();
+            System.out.println(replacements.getFileName());
+            replacements.addContentLine("Test line from FileFinder");
         }
     }
 

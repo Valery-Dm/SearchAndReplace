@@ -12,6 +12,7 @@ import dmv.desktop.searchandreplace.collection.ExactSearchTrie;
 /**
  * Immutable Class <tt>Exclusions.java</tt> will collect
  * prefixes and suffixes given at construction time.
+ * Prefixes may be reversed for backward scanning.
  * @author dmv
  * @since 2016 December 27
  */
@@ -42,7 +43,7 @@ public class Exclusions {
      *                                  or words for which word 'toFind' 
      *                                  is not a substring
      */
-    public Exclusions(Set<String> exclude, String toFind) {
+    public Exclusions(Set<String> exclude, String toFind, boolean reversePrefixes) {
         Objects.requireNonNull(exclude);
         Objects.requireNonNull(toFind);
         if (exclude.size() == 0 || toFind.length() == 0)
@@ -54,29 +55,39 @@ public class Exclusions {
         
         StringBuilder sb = new StringBuilder();
         String s = null;
-        int index = 0, i;
+        int index = 0;
         for (String w : exclude) {
             if (w == null || (index = w.indexOf(toFind)) == -1)
                 throw NOT_SUBS;
-            i = index;
-            if (i > 0) {
-                for (--i; i >= 0; i--)
-                    sb.append(w.charAt(i));
-                s = sb.toString();
-                prefixes.add(s);
+            if (index > 0) {
+                s = reversePrefixes ? 
+                        collectBackward(w, sb, index - 1, -1) : 
+                        collectForward(w, sb, 0, index);
                 trackMaxPrefix(s);
-                sb = new StringBuilder();
+                prefixes.add(s);
+                
             } 
-            i = index + toFind.length();
-            if (i < w.length()) {
-                for (; i < w.length(); i++) 
-                    sb.append(w.charAt(i));
-                s = sb.toString();
-                suffixes.add(s);
+            index += toFind.length();
+            if (index < w.length()) {
+                s = collectForward(w, sb, index, w.length());
                 trackMaxSuffix(s);
-                sb = new StringBuilder();
+                suffixes.add(s);
             }
         }
+    }
+    
+    private String collectBackward(String w, StringBuilder sb, int from, int to) {
+        sb = new StringBuilder();
+        for (int i = from; i > to; i--)
+            sb.append(w.charAt(i));
+        return sb.toString();
+    }
+    
+    private String collectForward(String w, StringBuilder sb, int from, int to) {
+        sb = new StringBuilder();
+        for (int i = from; i < to; i++)
+            sb.append(w.charAt(i));
+        return sb.toString();
     }
 
     /**
