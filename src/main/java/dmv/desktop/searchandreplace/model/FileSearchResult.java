@@ -1,5 +1,6 @@
 package dmv.desktop.searchandreplace.model;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import dmv.desktop.searchandreplace.collection.Tuple;
@@ -10,7 +11,7 @@ import dmv.desktop.searchandreplace.exceptions.ResourceNotExistsException;
  * Class <tt>FileSearchResult.java</tt> is one of variants
  * of how results should be delivered, especially for a
  * 'preview' part. It is planned to be an immutable object
- * of strings 'before' and 'after' replacements would be made.
+ * of strings 'before' and 'after' replacements were made.
  * One Instance per file with any modifications or exceptions
  * happened.
  * @author dmv
@@ -22,12 +23,12 @@ public interface FileSearchResult {
      * Get name of file, possibly modified.
      * First String is the original name.
      * Second is the modified version or,
-     * if second is null, for no modifications made
+     * if second is null, there were no modifications made
      * @return Tuple with original and modified file name,
      *         second parameter may be null if no modifications
      *         were made within file name
      */
-    Tuple<String, String> getModifiedName();
+    Tuple<Path, Path> getModifiedName();
     
     /**
      * List of file lines before and after modifications.
@@ -45,7 +46,7 @@ public interface FileSearchResult {
     int numberOfModificationsMade();
     
     /**
-     * If result is empty, but it supposed to not be,
+     * If result is empty, but it supposed to be present,
      * it may mean that operation has been interrupted.
      * The cause of interruption may be given in {@link #getCause()}
      * method

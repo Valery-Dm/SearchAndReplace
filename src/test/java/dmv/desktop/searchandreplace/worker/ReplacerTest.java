@@ -14,6 +14,7 @@ import java.util.*;
 import org.junit.*;
 
 import dmv.desktop.searchandreplace.model.Exclusions;
+import dmv.desktop.searchandreplace.model.ExclusionsTrie;
 
 
 public class ReplacerTest {
@@ -146,7 +147,7 @@ public class ReplacerTest {
         Set<String> set = new HashSet<>();
         for (String exclusion : list)
             set.add(exclusion);
-        exclusions = new Exclusions(set, toFind, true);
+        exclusions = new ExclusionsTrie(set, toFind, true);
     }
     
     private void writeResult(List<String> result) throws IOException {

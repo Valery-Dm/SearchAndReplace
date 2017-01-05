@@ -28,7 +28,7 @@ public class FilesWallkerBuilderTest {
     private String replaceWith;
     
     @Rule
-    public ExpectedException exception = ExpectedException.none();;
+    public ExpectedException exception = ExpectedException.none();
 
     @Before
     public void setUp() throws Exception {
@@ -192,9 +192,9 @@ public class FilesWallkerBuilderTest {
         target.setExclusions("", null);
         
         target.setExclusions("DoNot" + toFind, toFind + "Not");
-        Exclusions exclusions = target.build().getExclusions();
-        assertTrue(exclusions.containsPrefix("toNoD"));
-        assertTrue(exclusions.containsSuffix("Not"));
+        Exclusions exclusionsTrie = target.build().getExclusions();
+        assertTrue(exclusionsTrie.containsPrefix("toNoD", false));
+        assertTrue(exclusionsTrie.containsSuffix("Not"));
         
         exception.expect(IllegalArgumentException.class);
         target.setExclusions("DoNot" + toFind, "Not");

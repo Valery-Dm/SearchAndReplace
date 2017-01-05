@@ -27,7 +27,8 @@ public class ExclusionsTest {
     
     private String suffix;
     private String otherSuffix;
-
+    
+    
     @Before
     public void setUp() throws Exception {
         prefixes = new ArrayList<>();
@@ -47,7 +48,7 @@ public class ExclusionsTest {
         exclude.add(toFind + suffix);
         exclude.add(toFind + otherSuffix);
         
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
         
         checkSuffixes();
     }
@@ -57,7 +58,7 @@ public class ExclusionsTest {
         suffixes.add(suffix);
         suffixes.add(otherSuffix);
         
-        target = new Exclusions(prefixes, suffixes, true);
+        target = new ExclusionsTrie(prefixes, suffixes, true);
         
         checkSuffixes();
     }
@@ -67,7 +68,7 @@ public class ExclusionsTest {
         for (int i = 1; i < suffix.length() - 1; i++)
             suffixes.add(suffix.substring(0, suffix.length() - i));
         
-        target = new Exclusions(prefixes, suffixes, true);
+        target = new ExclusionsTrie(prefixes, suffixes, true);
         
         for (int i = 1; i < suffix.length() - 1; i++)
             assertTrue(target.containsAnySuffixes(suffix.substring(0, suffix.length() - i)));
@@ -75,7 +76,7 @@ public class ExclusionsTest {
     }
 
     private void checkSuffixes() {
-        assertThat(target.maxSuffix(), is(suffix.length()));
+        assertThat(target.maxSuffixSize(), is(suffix.length()));
         
         assertTrue(target.containsSuffix(suffix));
         assertTrue(target.containsSuffix(otherSuffix));
@@ -91,10 +92,10 @@ public class ExclusionsTest {
         for (int i = 1; i < prefix.length() - 1; i++)
             prefixes.add(prefix.substring(0, prefix.length() - i));
         
-        target = new Exclusions(prefixes, suffixes, true);
+        target = new ExclusionsTrie(prefixes, suffixes, true);
         
         for (int i = 1; i < prefix.length() - 1; i++)
-            assertTrue(target.containsAnyPrefixes(prefix.substring(0, prefix.length() - i)));
+            assertTrue(target.containsAnyPrefixes(prefix.substring(0, prefix.length() - i), true));
         
     }
 
@@ -103,23 +104,23 @@ public class ExclusionsTest {
         exclude.add(prefix + toFind);
         exclude.add(otherPrefix + toFind);
         
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
         
         checkPrefixes();
     }
 
     private void checkPrefixes() {
-        assertThat(target.maxPrefix(), is(prefix.length()));
+        assertThat(target.maxPrefixSize(), is(prefix.length()));
         
-        assertTrue(target.containsPrefix(reversedPrefix));
-        assertTrue(target.containsPrefix(reversedOtherPrefix));
-        assertFalse(target.containsPrefix(prefix));
-        assertFalse(target.containsPrefix(otherPrefix));
+        assertTrue(target.containsPrefix(reversedPrefix, false));
+        assertFalse(target.containsPrefix(reversedOtherPrefix, true));
+        assertTrue(target.containsPrefix(prefix, true));
+        assertFalse(target.containsPrefix(otherPrefix, false));
 
-        assertFalse(target.containsPrefix(reversedPrefix + "1"));
-        assertFalse(target.containsPrefix("1" + reversedPrefix));
-        assertFalse(target.containsPrefix(reversedPrefix.substring(1, reversedPrefix.length() - 1)));
-        assertFalse(target.containsPrefix(reversedPrefix.substring(0, reversedPrefix.length() - 2)));
+        assertFalse(target.containsPrefix(reversedPrefix + "1", false));
+        assertFalse(target.containsPrefix("1" + reversedPrefix, false));
+        assertFalse(target.containsPrefix(reversedPrefix.substring(1, reversedPrefix.length() - 1), false));
+        assertFalse(target.containsPrefix(reversedPrefix.substring(0, reversedPrefix.length() - 2), false));
     }
 
     @Test
@@ -127,7 +128,7 @@ public class ExclusionsTest {
         prefixes.add(prefix);
         prefixes.add(otherPrefix);
         
-        target = new Exclusions(prefixes, suffixes, true);
+        target = new ExclusionsTrie(prefixes, suffixes, true);
 
         checkPrefixes();
     }
@@ -137,55 +138,73 @@ public class ExclusionsTest {
         prefixes.add(reversedPrefix);
         prefixes.add(reversedOtherPrefix);
         
-        target = new Exclusions(prefixes, suffixes, false);
+        target = new ExclusionsTrie(prefixes, suffixes, false);
 
         checkPrefixes();
         
     }
     
+    @Test
+    public void containsPrefix4() {
+        exclude.add(prefix + toFind);
+        exclude.add(otherPrefix + toFind);
+        
+        target = new ExclusionsTrie(exclude, toFind, false);
+
+        assertTrue(target.containsPrefix(prefix, false));
+        assertFalse(target.containsPrefix(otherPrefix, true));
+        assertTrue(target.containsAnyPrefixes(prefix, false));
+        assertFalse(target.containsAnyPrefixes(otherPrefix, true));
+    }
+    
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg1() {
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg2() {
         toFind = "";
         exclude.add("not");
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg3() {
         exclude.add("notFindMe");
         exclude.add("notfindMe");
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
     public void illegalArg4() {
         exclude.add("notFindMe");
         exclude.add(null);
-        target = new Exclusions(exclude, toFind, true);
+        target = new ExclusionsTrie(exclude, toFind, true);
     }
 
-    @Test(expected=NullPointerException.class)
-    public void nullArg1() {
-        target = new Exclusions(null, toFind, true);
+    @Test(expected=IllegalArgumentException.class)
+    public void illegalArg5() {
+        target = new ExclusionsTrie(null, toFind, true);
     }
 
-    @Test(expected=NullPointerException.class)
-    public void nullArg2() {
-        target = new Exclusions(exclude, null, true);
+    @Test(expected=IllegalArgumentException.class)
+    public void illegalArg6() {
+        exclude.add("not");
+        target = new ExclusionsTrie(exclude, null, true);
     }
 
-    @Test(expected=NullPointerException.class)
-    public void nullArg3() {
-        target = new Exclusions(prefixes, null, false);
+    @Test
+    public void emptyExclusions1() {
+        target = new ExclusionsTrie(Collections.emptyList(), null, false);
+        assertTrue(target.maxPrefixSize() == 0);
+        assertTrue(target.maxSuffixSize() == 0);
     }
 
-    @Test(expected=NullPointerException.class)
-    public void nullArg4() {
-        target = new Exclusions(null, suffixes, false);
+    @Test
+    public void emptyExclusions2() {
+        target = new ExclusionsTrie(null, Collections.emptyList(), false);
+        assertTrue(target.maxPrefixSize() == 0);
+        assertTrue(target.maxSuffixSize() == 0);
     }
 }

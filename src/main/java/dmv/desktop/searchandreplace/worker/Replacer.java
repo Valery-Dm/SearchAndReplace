@@ -16,7 +16,7 @@ public class Replacer implements Runnable {
     private boolean renameFiles;
     private String toFind;
     private String replaceWith;
-    private Exclusions exclusions;
+    private Exclusions exclusionsTrie;
     private Path filePath;
     private Charset charSet;
     /* 
@@ -30,7 +30,7 @@ public class Replacer implements Runnable {
     public Replacer(Path filePath, 
                     String toFind, 
                     String replaceWith, 
-                    Exclusions exclusions,
+                    Exclusions exclusionsTrie,
                     Charset charSet,
                     boolean renameFiles,
                     boolean preview) {
@@ -38,7 +38,7 @@ public class Replacer implements Runnable {
         this.renameFiles = renameFiles;
         this.toFind = toFind;
         this.replaceWith = replaceWith;
-        this.exclusions = exclusions;
+        this.exclusionsTrie = exclusionsTrie;
         this.charSet = charSet;
         this.preview = preview;
         replaceMarkers = new ArrayList<>();
@@ -128,13 +128,13 @@ public class Replacer implements Runnable {
     }
 
     private boolean isExcluded(int s, int e, String line) {
-        int start = s - exclusions.maxPrefix();
+        int start = s - exclusionsTrie.maxPrefixSize();
         start = start < 0 ? 0 : start;
-        if (exclusions.containsAnyPrefixes(line.substring(start, s)))
+        if (exclusionsTrie.containsAnyPrefixes(line.substring(start, s), false))
             return true;
-        int end = e + exclusions.maxSuffix();
+        int end = e + exclusionsTrie.maxSuffixSize();
         end = end > line.length() ? line.length() : end;
-        if (exclusions.containsAnySuffixes(line.substring(e, end)))
+        if (exclusionsTrie.containsAnySuffixes(line.substring(e, end)))
             return true;
         return false;
     }

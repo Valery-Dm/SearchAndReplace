@@ -43,9 +43,9 @@ public class FolderWalkerTest {
     private int L = 10, LL = 10;
     private Random rand = new Random();
     
-    private SearchAndReplace<SearchFolder, SearchFile, FileSearchResult> target;
+    private SearchAndReplace<SearchFolder, SearchProfile, FileSearchResult> target;
     private SearchFolder rootFolder;
-    private SearchFile profile;
+    private SearchProfile profile;
     
     @BeforeClass
     public static void prepare() {
@@ -57,26 +57,34 @@ public class FolderWalkerTest {
         
         toFind = "Find me";
         replaceWith = "It's Replaced";
-        excludeAll = new Exclusions(Arrays.asList(prefixes), 
+        excludeAll = new ExclusionsTrie(Arrays.asList(prefixes), 
                                     Arrays.asList(suffixes), true);
-        excludePfx = new Exclusions(Arrays.asList(prefixes), 
+        excludePfx = new ExclusionsTrie(Arrays.asList(prefixes), 
                                     Collections.emptyList(), true);
-        excludeSfx = new Exclusions(Collections.emptyList(), 
+        excludeSfx = new ExclusionsTrie(Collections.emptyList(), 
                                     Arrays.asList(suffixes), true);
     }
     
     @Before
     public void setUp() throws Exception {
-        target = createTarget(replaceWith, excludeAll, true, true);
-        
         writeTestFiles(dirName, UNITS * 2);
         writeTestFiles(subDirName, UNITS);
     }
 
     @Test
-    public void test() {
+    public void multiFull() {
+        target = createTarget(replaceWith, excludeAll, true, true);
         target.preview(EXECS_POOL)
-              .forEach(System.out::println);;
+              .forEach(result -> testResult(result, replaceWith, excludeAll, true, true));
+    }
+
+    private Object testResult(FileSearchResult result, 
+                              String replaceWith,
+                              Exclusions exclusions, 
+                              boolean subfolders, 
+                              boolean filenames) {
+        System.out.println(result);
+        return null;
     }
 
     @After
@@ -155,7 +163,7 @@ public class FolderWalkerTest {
                   .setFileTypes(includePaths)
                   .setSubfolders(subfolders);
         
-        profile = new SearchFileImpl(toFind);
+        profile = new SearchProfileImpl(toFind);
         profile.setReplaceWith(replaceWith)
                .setCharset(charset)
                .setExclusions(exclusions)

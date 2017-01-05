@@ -31,7 +31,7 @@ public class FileFinder implements Consumer<FileReplacements> {
      * information and fill it up with replace markers.
      * Note, that any previously collected markers will
      * be overridden during this find operation.
-     * It does not check for any Exclusions, i.e. it collects
+     * It does not check for any ExclusionsTrie, i.e. it collects
      * all needed to be found places as markers inside
      * given object.
      * @throws NullPointerException if given object is null

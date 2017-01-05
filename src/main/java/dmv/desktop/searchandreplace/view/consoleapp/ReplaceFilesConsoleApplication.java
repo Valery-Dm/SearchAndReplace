@@ -8,7 +8,7 @@ import dmv.desktop.searchandreplace.service.SearchAndReplace;
 
 public class ReplaceFilesConsoleApplication {
     
-    private SearchAndReplace<SearchFolder, SearchFile, List<FileSearchResult>> replacer;
+    private SearchAndReplace<SearchFolder, SearchProfile, List<FileSearchResult>> replacer;
 
     public ReplaceFilesConsoleApplication() {
         
@@ -19,7 +19,7 @@ public class ReplaceFilesConsoleApplication {
         folder.setFolder(Paths.get("src/test/resources"))
               .setFileTypes("*.java", "*.project", "*.xml")
               .setSubfolders(true);
-        SearchFile profile = new SearchFileImpl("test");
+        SearchProfile profile = new SearchProfileImpl("test");
         
         ReplaceFilesConsoleApplication app = new ReplaceFilesConsoleApplication();
         //app.replacer = new FolderWalker(folder, profile);

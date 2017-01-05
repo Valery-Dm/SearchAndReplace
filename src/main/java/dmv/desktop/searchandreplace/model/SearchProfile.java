@@ -7,14 +7,14 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Interface <tt>SearchFile.java</tt> describes methods
+ * Interface <tt>SearchProfile.java</tt> describes methods
  * of 'How to find and replace' profile which includes info
  * of how to read a file, what to find in it, what to exclude 
  * from search and, finally, what to set in replace
  * @author dmv
  * @since 2017 January 02
  */
-public interface SearchFile {
+public interface SearchProfile {
 
     /**
      * Default Charset that will be used for reading and writing
@@ -34,7 +34,7 @@ public interface SearchFile {
      * then the {@link #defaultCharset} will be used
      * @param charset {@link Charset} 
      */
-    SearchFile setCharset(Charset charset);
+    SearchProfile setCharset(Charset charset);
     
     /**
      * Will be searched and replaced file names or not
@@ -48,7 +48,7 @@ public interface SearchFile {
      * for their content
      * @param filename true - rename file, false - skip file name
      */
-    SearchFile setFilename(boolean filename);
+    SearchProfile setFilename(boolean filename);
     
     /**
      * Get current string that is needed to be found and replaced.
@@ -63,7 +63,7 @@ public interface SearchFile {
      * @param toFind String to be found
      * @throws IllegalArgumentException if given argument is null or empty
      */
-    SearchFile setToFind(String toFind);
+    SearchProfile setToFind(String toFind);
 
     /**
      * Get current string that will be placed instead
@@ -81,7 +81,7 @@ public interface SearchFile {
      * (i.e. replaced with 0-length strings).
      * @param replaceWith String to be replaced with
      */
-    SearchFile setReplaceWith(String replaceWith);
+    SearchProfile setReplaceWith(String replaceWith);
     
     /**
      * Get current exclusions: suffixes and reversed prefixes
@@ -99,5 +99,5 @@ public interface SearchFile {
      * during the next 'search and replace' operation
      * @param exclusions New set of exclusions
      */
-    SearchFile setExclusions(Exclusions exclusions);
+    SearchProfile setExclusions(Exclusions exclusions);
 }

@@ -3,6 +3,7 @@
  */
 package dmv.desktop.searchandreplace.model;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import dmv.desktop.searchandreplace.collection.Tuple;
@@ -16,7 +17,7 @@ import dmv.desktop.searchandreplace.collection.Tuple;
 public class FileSearchResultImpl implements FileSearchResult {
     
     private int numberOfModificationsMade;
-    private Tuple<String, String> modifiedName;
+    private Tuple<Path, Path> modifiedName;
     private List<Tuple<String, String>> modifiedContent;
     
     private boolean exceptional;
@@ -30,9 +31,10 @@ public class FileSearchResultImpl implements FileSearchResult {
      * @param cause
      */
     public FileSearchResultImpl(int numberOfModificationsMade,
-            Tuple<String, String> modifiedName,
-            List<Tuple<String, String>> modifiedContent, boolean exceptional,
-            Throwable cause) {
+                                Tuple<Path, Path> modifiedName,
+                                List<Tuple<String, String>> modifiedContent, 
+                                boolean exceptional,
+                                Throwable cause) {
         this.numberOfModificationsMade = numberOfModificationsMade;
         this.modifiedName = modifiedName;
         this.modifiedContent = modifiedContent;
@@ -44,7 +46,7 @@ public class FileSearchResultImpl implements FileSearchResult {
      * @see dmv.desktop.searchandreplace.model.FileSearchResult#getModifiedName()
      */
     @Override
-    public Tuple<String, String> getModifiedName() {
+    public Tuple<Path, Path> getModifiedName() {
         return modifiedName;
     }
 
@@ -82,14 +84,23 @@ public class FileSearchResultImpl implements FileSearchResult {
 
     @Override
     public String toString() {
-        final int maxLen = 10;
-        return String
-                .format("FileSearchResultImpl [numberOfModificationsMade=%s, modifiedName=%s, modifiedContent=%s, exceptional=%s, cause=%s]",
-                        numberOfModificationsMade, modifiedName,
-                        modifiedContent != null ? modifiedContent.subList(0,
-                                Math.min(modifiedContent.size(), maxLen))
-                                : null,
-                        exceptional, cause);
+        int maxLen = 10;
+        StringBuilder modContent = new StringBuilder(maxLen);
+        for (Tuple<String, String> line : modifiedContent) {
+            if (maxLen-- == 0) break;
+            modContent.append("\noriginal: ")
+                      .append(line.getFirst())
+                      .append("\nmodified: ")
+                      .append(line.getLast());
+        }
+        String modName = modifiedName.getLast() == null ?
+                         "name was not modified" : "new file name is " +
+                         modifiedName.getLast().getFileName();
+        return String.format("\nResults for a file: \n%s \n" +
+               "Number Of modifications = %s \n%s %s \nexceptional=%s, cause=%s]",
+                modifiedName.getFirst(),        
+                numberOfModificationsMade, modName,
+                modContent, exceptional, cause);
     }
 
 }

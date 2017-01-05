@@ -35,10 +35,10 @@ import dmv.desktop.searchandreplace.model.*;
  * @since 2017 January 02
  */
 public class FolderWalker
-        implements SearchAndReplace<SearchFolder, SearchFile, FileSearchResult> {
+        implements SearchAndReplace<SearchFolder, SearchProfile, FileSearchResult> {
     
     private SearchFolder folder;
-    private SearchFile profile;
+    private SearchProfile profile;
     private State state;
     
     private Random rand = new Random();
@@ -50,7 +50,7 @@ public class FolderWalker
      * @param folder 'where to search' parameter
      * @param profile 'what to find' parameter
      */
-    public FolderWalker(SearchFolder folder, SearchFile profile) {
+    public FolderWalker(SearchFolder folder, SearchProfile profile) {
         setRootElement(folder);
         setProfile(profile);
     }
@@ -68,12 +68,12 @@ public class FolderWalker
     }
 
     @Override
-    public SearchFile getProfile() {
+    public SearchProfile getProfile() {
         return profile;
     }
 
     @Override
-    public void setProfile(SearchFile profile) {
+    public void setProfile(SearchProfile profile) {
         Objects.requireNonNull(profile);
         if (this.profile != null &&
            (!this.profile.getCharset().equals(profile.getCharset()) ||
@@ -98,7 +98,7 @@ public class FolderWalker
     private FileSearchResult produceResult(FileReplacements repl) {
         if (repl == null) return null;
         // replace markers and build result
-        Tuple<String, String> modName = new Tuple<>(repl.getFileName(), repl.getModifiedName());
+        Tuple<Path, Path> modName = new Tuple<>(repl.getFilePath(), null);
         List<Tuple<String, String>> modLines = repl.getModifiedContent()
             .stream()
             .map(line -> new Tuple<>(line, line + ", and modified"))
@@ -143,7 +143,7 @@ public class FolderWalker
                  .map(future -> future.thenApplyAsync(this::produceResult, exec))
                  .collect(Collectors.<CompletableFuture<FileSearchResult>>toList());
             
-            return collect.parallelStream()
+            return collect.stream()
                           .map(future -> {
                                 try {
                                     return future.get();

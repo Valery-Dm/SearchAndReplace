@@ -3,20 +3,21 @@
  */
 package dmv.desktop.searchandreplace.model;
 
+import static java.util.Collections.emptyList;
+
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 
 /**
- * Class <tt>SearchFileImpl.java</tt> implements 
- * {@link SearchFile} interface keeping its invariants
+ * Class <tt>SearchProfileImpl.java</tt> implements 
+ * {@link SearchProfile} interface keeping its invariants
  * (like 'what to find should not be null or empty').
  * @author dmv
  * @since 2017 January 02
  */
-public class SearchFileImpl implements SearchFile {
+public class SearchProfileImpl implements SearchProfile {
     
     private static final Exclusions EMPTY_EXCL = 
-            new Exclusions(new ArrayList<>(), new ArrayList<>(), false);
+                     new ExclusionsTrie(emptyList(), emptyList(), false);
     private static final String EMPTY_REPLACE = "";
     
     private Charset charset;
@@ -27,14 +28,14 @@ public class SearchFileImpl implements SearchFile {
     
     /**
      * Creates profile with default settings:
-     * charset is {@link SearchFile#defaultCharset};
+     * charset is {@link SearchProfile#defaultCharset};
      * filename - false;
-     * replaceWith and exclusions are empty.
+     * replaceWith and exclusionsTrie are empty.
      * 'What to find' string can't be null or empty.
      * @param toFind
      * @throws IllegalArgumentException if toFind is null or empty
      */
-    public SearchFileImpl(String toFind) {
+    public SearchProfileImpl(String toFind) {
         setToFind(toFind);
         setCharset(null);
         setFilename(false);
@@ -43,7 +44,7 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#getCharset()
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#getCharset()
      */
     @Override
     public Charset getCharset() {
@@ -51,17 +52,17 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#setCharset(java.nio.charset.Charset)
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#setCharset(java.nio.charset.Charset)
      */
     @Override
-    public SearchFile setCharset(Charset charset) {
+    public SearchProfile setCharset(Charset charset) {
         if (charset != null) this.charset = charset;
         else this.charset = defaultCharset;
         return this;
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#isFileName()
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#isFileName()
      */
     @Override
     public boolean isFileName() {
@@ -69,16 +70,16 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#setFilename(boolean)
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#setFilename(boolean)
      */
     @Override
-    public SearchFile setFilename(boolean filename) {
+    public SearchProfile setFilename(boolean filename) {
         this.filename = filename;
         return this;
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#getToFind()
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#getToFind()
      */
     @Override
     public String getToFind() {
@@ -86,18 +87,18 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#setToFind(java.lang.String)
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#setToFind(java.lang.String)
      */
     @Override
-    public SearchFile setToFind(String toFind) {
+    public SearchProfile setToFind(String toFind) {
         if (toFind == null || toFind.length() < 1)
-            throw new IllegalArgumentException("What to find should be at least one character long");
+            throw new IllegalArgumentException("'What to find' should be at least one character long");
         this.toFind = toFind;
         return this;
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#getReplaceWith()
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#getReplaceWith()
      */
     @Override
     public String getReplaceWith() {
@@ -105,19 +106,16 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#setReplaceWith(java.lang.String)
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#setReplaceWith(java.lang.String)
      */
     @Override
-    public SearchFile setReplaceWith(String replaceWith) {
-        if (replaceWith != null)
-            this.replaceWith = replaceWith;
-        else
-            this.replaceWith = EMPTY_REPLACE;
+    public SearchProfile setReplaceWith(String replaceWith) {
+        this.replaceWith = replaceWith != null ? replaceWith : EMPTY_REPLACE;
         return this;
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#getExclusions()
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#getExclusions()
      */
     @Override
     public Exclusions getExclusions() {
@@ -125,14 +123,11 @@ public class SearchFileImpl implements SearchFile {
     }
 
     /* (non-Javadoc)
-     * @see dmv.desktop.searchandreplace.model.SearchFile#setExclusions(dmv.desktop.searchandreplace.model.Exclusions)
+     * @see dmv.desktop.searchandreplace.model.SearchProfile#setExclusions(dmv.desktop.searchandreplace.model.ExclusionsTrie)
      */
     @Override
-    public SearchFile setExclusions(Exclusions exclusions) {
-        if (exclusions != null)
-            this.exclusions = exclusions;
-        else 
-            this.exclusions = EMPTY_EXCL;
+    public SearchProfile setExclusions(Exclusions exclusions) {
+        this.exclusions = exclusions != null ? exclusions : EMPTY_EXCL;
         return this;
     }
 

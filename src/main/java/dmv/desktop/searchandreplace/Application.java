@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import dmv.desktop.searchandreplace.model.Exclusions;
+import dmv.desktop.searchandreplace.model.ExclusionsTrie;
 import dmv.desktop.searchandreplace.worker.Replacer;
 
 public class Application {
@@ -64,7 +65,7 @@ public class Application {
         toFind = "HamiltonianCycle";
         replaceWith = "HamiltonianPath";
         exclude = Arrays.asList(new String[] {"isHamiltonianCycleExist", "getHamiltonianCycle"});
-        exclusions = new Exclusions(new HashSet<>(exclude), toFind, true);
+        exclusions = new ExclusionsTrie(new HashSet<>(exclude), toFind, true);
         
         renameIn(Paths.get(rootDirectoryName));
         

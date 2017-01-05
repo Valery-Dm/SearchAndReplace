@@ -11,6 +11,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
 import dmv.desktop.searchandreplace.model.Exclusions;
+import dmv.desktop.searchandreplace.model.ExclusionsTrie;
 import dmv.desktop.searchandreplace.model.FileReplacements;
 
 /**
@@ -18,7 +19,7 @@ import dmv.desktop.searchandreplace.model.FileReplacements;
  * on root directory and 'walks' its content in order to
  * find files to be modified. It will cache those files
  * in memory for possibility of 'after-found' adjustments, like 
- * add or remove exclusions, change replace-with string etc.
+ * add or remove exclusionsTrie, change replace-with string etc.
  * All 'pre-find' changes (like CharSet, what to find, file types, etc)
  * will remove cached files, so to read them from disk again.
  * @author dmv
@@ -156,15 +157,15 @@ public class FilesWallker {
     }
 
     /**
-     * @return Current exclusions object for insertion or deletion
+     * @return Current exclusionsTrie object for insertion or deletion
      */
     public Exclusions getExclusions() {
         return exclusions;
     }
     
     /**
-     * Replace current exclusions with new set,
-     * null or empty set means 'no exclusions'.
+     * Replace current exclusionsTrie with new set,
+     * null or empty set means 'no exclusionsTrie'.
      * @param exclusions New set of exclusions
      */
     public void setExclusions(Exclusions exclusions) {
@@ -224,9 +225,9 @@ public class FilesWallker {
                                     setExclusions());
         }
         
-        private Exclusions setExclusions() {
+        private ExclusionsTrie setExclusions() {
             if (exclusions != null) 
-                return new Exclusions(exclusions, toFind, true);
+                return new ExclusionsTrie(exclusions, toFind, true);
             return null;
         }
         

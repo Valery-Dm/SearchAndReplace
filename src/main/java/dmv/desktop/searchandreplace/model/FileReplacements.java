@@ -24,7 +24,7 @@ import dmv.desktop.searchandreplace.collection.Triple;
 public class FileReplacements {
 
     private Path filePath;
-    private SearchFile profile;
+    private SearchProfile profile;
     
     private String fileName;
     private String replaceWith;
@@ -35,7 +35,7 @@ public class FileReplacements {
     private List<Triple<Integer, Integer, Integer>> fileContentMarkers;
     
     
-    public FileReplacements(Path file, SearchFile profile) {
+    public FileReplacements(Path file, SearchProfile profile) {
         filePath = file;
         fileName = file.getFileName().toString();
         this.profile = profile;
