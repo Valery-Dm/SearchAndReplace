@@ -1,5 +1,9 @@
 package dmv.desktop.searchandreplace.service;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
+
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +13,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 
 import org.junit.*;
 
@@ -20,6 +25,7 @@ public class FolderWalkerTest {
     private static final int UNITS = Runtime.getRuntime().availableProcessors() * 3;
     private static final ExecutorService EXECS_POOL = Executors.newFixedThreadPool(UNITS);
     private static final ExecutorService SINGLE_EXEC = Executors.newSingleThreadExecutor();
+    private static final String NULL = null;
 
     private static String dirName;
     private static String subDirName;
@@ -29,6 +35,9 @@ public class FolderWalkerTest {
     private static String[] includePaths = {"*.txt", "*.bin"};
     private static String[] prefixes = {"do not", "It won't"};
     private static String[] suffixes = {"leave this", "Stay"};
+    private static String[] withPrefixes;
+    private static String[] withSuffixes;
+    private static String[] withPrefixesAndSuffixes;
     private static int pfxSize;
     private static int sfxSize;
     private static Exclusions excludeAll;
@@ -38,7 +47,7 @@ public class FolderWalkerTest {
     private static String toFind;
     private static String replaceWith;
     
-    private List<String> filesContent;
+    private List<String> fileContent;
     // L - lines per file; LL - line's length before toFind addition
     private int L = 10, LL = 10;
     private Random rand = new Random();
@@ -58,13 +67,23 @@ public class FolderWalkerTest {
         toFind = "Find me";
         replaceWith = "It's Replaced";
         excludeAll = new ExclusionsTrie(Arrays.asList(prefixes), 
-                                    Arrays.asList(suffixes), true);
+                                        Arrays.asList(suffixes), true);
         excludePfx = new ExclusionsTrie(Arrays.asList(prefixes), 
-                                    Collections.emptyList(), true);
+                                        Collections.emptyList(), true);
         excludeSfx = new ExclusionsTrie(Collections.emptyList(), 
-                                    Arrays.asList(suffixes), true);
+                                        Arrays.asList(suffixes), true);
+        withPrefixes = Stream.of(prefixes)
+                             .map(pfx -> pfx + toFind)
+                             .toArray(size -> new String[size]);
+        withSuffixes = Stream.of(suffixes)
+                             .map(sfx -> toFind + sfx)
+                             .toArray(size -> new String[size]);
+        int length = Math.min(pfxSize, sfxSize);
+        withPrefixesAndSuffixes = new String[length];
+        for (int i = 0; i < length; i++) 
+            withPrefixesAndSuffixes[i] = prefixes[i] + toFind + suffixes[i];
     }
-    
+
     @Before
     public void setUp() throws Exception {
         writeTestFiles(dirName, UNITS * 2);
@@ -84,6 +103,14 @@ public class FolderWalkerTest {
                               boolean subfolders, 
                               boolean filenames) {
         System.out.println(result);
+        String origName = result.getModifiedName().getFirst().toString();
+        if (!subfolders)
+            assertFalse(origName.contains(subDirName));
+        if (filenames) {
+            if (!origName.contains(toFind)) 
+                assertThat(result.getModifiedName().getLast(), is(NULL));
+            
+        }
         return null;
     }
 
@@ -106,8 +133,8 @@ public class FolderWalkerTest {
         EXECS_POOL.shutdown();
     }
 
-    private void prepareFilesContent() {
-        filesContent = new ArrayList<>();
+    private void prepareFileContent() {
+        fileContent = new ArrayList<>();
         StringBuilder line = new StringBuilder(LL);
         for (int l = 0; l < L; l++) {
             for (int i = 0; i < LL; i++) {
@@ -120,7 +147,7 @@ public class FolderWalkerTest {
                 }
                 line.append((char) rand.nextInt(Character.MAX_RADIX));
             }
-            filesContent.add(line.toString());
+            fileContent.add(line.toString());
             line = new StringBuilder(LL);
         }
     }
@@ -146,14 +173,14 @@ public class FolderWalkerTest {
             else
                 finder += otherExt;
             
-            prepareFilesContent();
+            prepareFileContent();
             writeFile(Paths.get(dir + finder));
         }
     }
     
     private void writeFile(Path file) throws IOException {
         Files.createFile(file);
-        Files.write(file, filesContent, charset);
+        Files.write(file, fileContent, charset);
     }
 
     private FolderWalker createTarget(String replaceWith, Exclusions exclusions,

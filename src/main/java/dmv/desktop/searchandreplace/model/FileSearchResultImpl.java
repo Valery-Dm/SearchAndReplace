@@ -85,22 +85,27 @@ public class FileSearchResultImpl implements FileSearchResult {
     @Override
     public String toString() {
         int maxLen = 10;
-        StringBuilder modContent = new StringBuilder(maxLen);
-        for (Tuple<String, String> line : modifiedContent) {
-            if (maxLen-- == 0) break;
-            modContent.append("\noriginal: ")
-                      .append(line.getFirst())
-                      .append("\nmodified: ")
-                      .append(line.getLast());
+        StringBuilder modContent = new StringBuilder();
+        if (modifiedContent != null) {
+            for (Tuple<String, String> line : modifiedContent) {
+                if (maxLen-- == 0) break;
+                modContent.append("\noriginal: ")
+                .append(line.getFirst())
+                .append("\nmodified: ")
+                .append(line.getLast());
+            }
         }
-        String modName = modifiedName.getLast() == null ?
-                         "name was not modified" : "new file name is " +
-                         modifiedName.getLast().getFileName();
-        return String.format("\nResults for a file: \n%s \n" +
-               "Number Of modifications = %s \n%s %s \nexceptional=%s, cause=%s]",
-                modifiedName.getFirst(),        
-                numberOfModificationsMade, modName,
-                modContent, exceptional, cause);
+        if (modifiedName != null) {
+            String modName = modifiedName.getLast() == null ?
+                    "name was not modified" : "new file name is " +
+                    modifiedName.getLast().getFileName();
+            return String.format("\nResults for a file: \n%s \n" +
+                    "Number Of modifications = %s \n%s %s \nexceptional=%s, cause=%s]",
+                    modifiedName.getFirst(),        
+                    numberOfModificationsMade, modName,
+                    modContent, exceptional, cause);
+        }
+        return modContent.toString();
     }
 
 }

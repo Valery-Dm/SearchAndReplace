@@ -3,50 +3,51 @@
  */
 package dmv.desktop.searchandreplace.service;
 
+import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.AFTER_FOUND;
 import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.BEFORE_FIND;
+import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.INTERRUPTED;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.Queue;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import dmv.desktop.searchandreplace.collection.Tuple;
 import dmv.desktop.searchandreplace.model.*;
+import dmv.desktop.searchandreplace.worker.FileReplacer;
+import dmv.desktop.searchandreplace.worker.FileReplacerImpl;
 
 
 /**
  * Class <tt>FolderWalker.java</tt> implements {@link SearchAndReplace} 
  * interface for Folders and Files. So, it can read files in folder,
- * then search for what needed to be replace, then return found results
+ * then search for what needed to be replaced, then return found results
  * for preview or actually replace files content and also rename files if needed.
  * Everything in found files will be cached in memory, then 'to find' spots replaced,
- * then modified content will be written back into files. State became 'after-found'.
+ * then modified content will be written back into files. State became 'REPLACED'.
  * Any parameter may be overridden at any stage, some changes may lead to change in 
- * object's state (to 'before-found') which means that files on disk will be scanned again.
- * and 
+ * object's state (to 'BEFORE_FOUND') which means that files on disk will be scanned again.
+ * 
  * @author dmv
  * @since 2017 January 02
  */
 public class FolderWalker
         implements SearchAndReplace<SearchFolder, SearchProfile, FileSearchResult> {
     
+    private static final ForkJoinPool COMMON_POOL = ForkJoinPool.commonPool();
+    
     private SearchFolder folder;
     private SearchProfile profile;
+    private Queue<FileReplacer> foundFiles;
     private State state;
-    
-    private Random rand = new Random();
-    private long[] delays = {100, 500, 1000, 1500, 2000, 2500, 3000};
     
     /**
      * Constructs a Walker with required parameters.
-     * They could be reset or changed later.
+     * They could be changed later.
      * @param folder 'where to search' parameter
      * @param profile 'what to find' parameter
      */
@@ -75,124 +76,91 @@ public class FolderWalker
     @Override
     public void setProfile(SearchProfile profile) {
         Objects.requireNonNull(profile);
-        if (this.profile != null &&
-           (!this.profile.getCharset().equals(profile.getCharset()) ||
-            !this.profile.getToFind().equals(profile.getToFind())))
-            state = BEFORE_FIND;
         this.profile = profile;
     }
-    
-    private FileReplacements readFileContent(FileReplacements repl) {
-        // read and put it into repl
-        repl.addContentLine(repl.getFileName() + " read");
 
-        System.out.println(repl.getFileName() + " read");
-        try {
-            Thread.sleep(delays[rand.nextInt(delays.length)]);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return repl;
-    }
-    
-    private FileSearchResult produceResult(FileReplacements repl) {
-        if (repl == null) return null;
-        // replace markers and build result
-        Tuple<Path, Path> modName = new Tuple<>(repl.getFilePath(), null);
-        List<Tuple<String, String>> modLines = repl.getModifiedContent()
-            .stream()
-            .map(line -> new Tuple<>(line, line + ", and modified"))
-            .collect(Collectors.<Tuple<String, String>>toList());
-        // sum modified lines plus rename
-        int mod = repl.getModifiedContent().size() + 1;
-        FileSearchResult result = 
-                new FileSearchResultImpl(mod, modName, modLines, false, null);
-        
-        return result;
-    }
-    
-    private FileReplacements produceExceptional(Throwable cause) {
-        FileReplacements repl = null;
-        
-        // Get repl object from Custom Exception where it was saved
-        
-        return null;
-    }
-    
-    private boolean isValid(Path file) {
-        System.out.println(file);
-        if (!Files.isDirectory(file) &&
-             Files.isReadable(file)) {
-            System.out.println(folder.getFileTypes().matches(file.getFileName()));
-            return true;
-        }
-        return false;
-    }
-    
     @Override
     public Stream<FileSearchResult> preview(Executor exec) {
+        Objects.requireNonNull(exec);
         if (folder == null || profile == null)
             throw new IllegalStateException("Either folder or profile was not specified");
         try {
-            List<CompletableFuture<FileSearchResult>> collect = Files
-                 .walk(folder.getFolder(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
-                 .filter(this::isValid)
-                 .map(file -> CompletableFuture.supplyAsync(() -> new FileReplacements(file, profile)))
-                 .map(future -> future.thenApplyAsync(this::readFileContent, exec))
-                 //.map(future -> future.exceptionally(this::produceExceptional))
-                 .map(future -> future.thenApplyAsync(this::produceResult, exec))
-                 .collect(Collectors.<CompletableFuture<FileSearchResult>>toList());
-            
+            List<CompletableFuture<FileSearchResult>> collect = 
+                    getFoundFiles(exec)
+                         .map(future -> future.thenApplyAsync(this::produceResult, exec))
+                         .collect(Collectors.<CompletableFuture<FileSearchResult>>toList());
+            state = AFTER_FOUND;
             return collect.stream()
-                          .map(future -> {
-                                try {
-                                    return future.get();
-                                } catch (InterruptedException | ExecutionException e) {
-                                    throw new IllegalStateException(e);
-                                }
-                            });
+                          .map(this::getResult);
         } catch (IOException e) {
+            state = INTERRUPTED;
             e.printStackTrace();
+            // TODO find a way to notify app's user without crashing
         }
+        // must be removed
         return null;
     }
-    
+
     @Override
     public Stream<FileSearchResult> preview() {
-        if (folder == null || profile == null)
-            throw new IllegalStateException("Either folder or profile was not specified");
-        try {
-            List<CompletableFuture<FileSearchResult>> collect = Files
-                 .walk(folder.getFolder(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
-                 .filter(this::isValid)
-                 .map(file -> CompletableFuture.supplyAsync(() -> new FileReplacements(file, profile)))
-                 .map(future -> future.thenApplyAsync(this::readFileContent))
-                 .map(future -> future.exceptionally(this::produceExceptional))
-                 .map(future -> future.thenApplyAsync(this::produceResult))
-                 .collect(Collectors.<CompletableFuture<FileSearchResult>>toList());
-            
-            return collect.parallelStream()
-                          .map(future -> {
-                                try {
-                                    return future.get();
-                                } catch (InterruptedException | ExecutionException e) {
-                                    throw new IllegalStateException(e);
-                                }
-                            });
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        /* Explicitly set the default pool of CompletableFuture */
+        return preview(COMMON_POOL);
     }
 
     @Override
     public Stream<FileSearchResult> replace() {
+        // TODO create replace method
         return null;
     }
 
     @Override
     public Stream<FileSearchResult> replace(Executor exec) {
+        // TODO create replace method
         return null;
     }
 
+    private FileSearchResult getResult(CompletableFuture<FileSearchResult> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            return new FileSearchResultImpl(0, null, null, true, e);
+        }
+    }
+    
+    private FileReplacer readFileContent(FileReplacer replacer) {
+        //replacer.readFile();
+        if (replacer.hasReplacements()) 
+            foundFiles.add(replacer);
+        return replacer;
+    }
+    
+    private FileSearchResult produceResult(FileReplacer replacer) {
+        return replacer.getResult();
+    }
+    
+    private FileReplacer produceExceptional(Throwable cause) {
+        // Or cancel whole operation?
+        return null;
+    }
+    
+    private boolean isPathValid(Path file) {
+        return !Files.isDirectory(file) &&
+                folder.getFileTypes().matches(file.getFileName());
+    }
+    
+    private Stream<CompletableFuture<FileReplacer>> getFoundFiles(Executor exec) throws IOException {
+        if (state.equals(AFTER_FOUND)) {
+            return foundFiles.stream()
+                             .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec));
+        }
+        foundFiles = new ConcurrentLinkedQueue<>();
+        return Files
+                .walk(folder.getFolder(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
+                .filter(this::isPathValid)
+                .map(file -> new FileReplacerImpl(file, profile))
+                .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec))
+                .map(future -> future.thenApplyAsync(this::readFileContent, exec))
+                .map(future -> future.exceptionally(this::produceExceptional));
+    }
+    
 }

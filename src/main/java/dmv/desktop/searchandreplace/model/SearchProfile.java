@@ -23,22 +23,23 @@ public interface SearchProfile {
     static final Charset defaultCharset = StandardCharsets.UTF_16;
     
     /**
-     * Get current charset
+     * Get current charset. The {@link #defaultCharset} will be
+     * returned if it was not explicitly set.
      * @return Current charset
      */
     Charset getCharset();
     
     /**
      * Set charset which will be used for reading and 
-     * writing into the file. If the null is passed 
+     * writing into a file. If the null is passed 
      * then the {@link #defaultCharset} will be used
      * @param charset {@link Charset} 
      */
     SearchProfile setCharset(Charset charset);
     
     /**
-     * Will be searched and replaced file names or not
-     * @return true if files will be renamed
+     * Will file names be searched and replaced or not
+     * @return true if file needs to be renamed
      */
     boolean isFileName();
     
@@ -86,7 +87,7 @@ public interface SearchProfile {
     /**
      * Get current exclusions: suffixes and reversed prefixes
      * of toFind word. Those combinations will not be replaced
-     * during 'search and replace' routine. Can be empty
+     * during 'search and replace' routine. Can be empty.
      * @return Current exclusions
      */
     Exclusions getExclusions();

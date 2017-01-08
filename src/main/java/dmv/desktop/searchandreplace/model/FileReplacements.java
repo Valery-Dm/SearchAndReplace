@@ -25,6 +25,7 @@ public class FileReplacements {
 
     private Path filePath;
     private SearchProfile profile;
+    private Throwable cause;
     
     private String fileName;
     private String replaceWith;
@@ -61,6 +62,14 @@ public class FileReplacements {
     
     public Path getFilePath() {
         return filePath;
+    }
+    
+    public SearchProfile getProfile() {
+        return profile;
+    }
+    
+    public void addCause(Throwable cause) {
+        this.cause = cause;
     }
     
     public String getFileName() {
