@@ -2,8 +2,11 @@ package dmv.desktop.searchandreplace.collection;
 
 /**
  * Class <tt>Trie.java</tt> describes Retrieval Data Structure
- * with bare minimum method to be used with 'Search and Replace' app.
- * Consider capital letters or ignore them - depends on implementation
+ * with bare minimum method to be used with 'Search and Replace' application.
+ * It offers methods to store strings {@link #add(String)}, count the number 
+ * of them {@link #size()}, and then check if string exists in Trie {@link #contains(String)}
+ * and {@link #containsAnyFrom(String)}. (Without deletion right now)
+ * Will capital letters be considered or ignored - depends on implementation
  * @author dmv
  * @since 2016 December 26
  */
@@ -23,10 +26,10 @@ public interface Trie {
     void add(String word);
     
     /**
-     * If given word exits in a trie
+     * Check if given word exits in a trie
      * @param word A word to search for
      * @return 'true' if word is found. If word is null
-     *         or doesn't exist 'false' will be returned
+     *         or doesn't exist then 'false' will be returned
      */
     boolean contains(String word);
     

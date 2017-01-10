@@ -16,7 +16,7 @@ import java.nio.charset.Charset;
  */
 public class SearchProfileImpl implements SearchProfile {
     
-    private static final Exclusions EMPTY_EXCL = 
+    private static final Exclusions EMPTY_EXCLUSIONS = 
                      new ExclusionsTrie(emptyList(), emptyList(), false);
     private static final String EMPTY_REPLACE = "";
     
@@ -30,9 +30,9 @@ public class SearchProfileImpl implements SearchProfile {
      * Creates profile with default settings:
      * charset is {@link SearchProfile#defaultCharset};
      * filename - false;
-     * replaceWith and exclusionsTrie are empty.
+     * replaceWith and exclusions are empty.
      * 'What to find' string can't be null or empty.
-     * @param toFind
+     * @param toFind 'What to find' string
      * @throws IllegalArgumentException if toFind is null or empty
      */
     public SearchProfileImpl(String toFind) {
@@ -127,8 +127,17 @@ public class SearchProfileImpl implements SearchProfile {
      */
     @Override
     public SearchProfile setExclusions(Exclusions exclusions) {
-        this.exclusions = exclusions != null ? exclusions : EMPTY_EXCL;
+        this.exclusions = exclusions != null ? exclusions : EMPTY_EXCLUSIONS;
         return this;
+    }
+
+    @Override
+    public SearchProfile clone() {
+        return new SearchProfileImpl(toFind)
+                        .setCharset(charset)
+                        .setExclusions(exclusions)
+                        .setReplaceWith(replaceWith)
+                        .setFilename(filename);
     }
 
 }

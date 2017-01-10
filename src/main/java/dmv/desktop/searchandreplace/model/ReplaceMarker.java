@@ -8,6 +8,11 @@ package dmv.desktop.searchandreplace.model;
  * Class <tt>ReplaceMarker.java</tt> is a POJO
  * with information of some place in a file or filename
  * that is found by search engine and is about to be replaced.
+ * <p>
+ * It has {@code lineNumber} - the index of content line;
+ * {@code startIndex} - index of first character of found word
+ * and {@code excluded} boolean which specifies if this marker
+ * will be excluded from 'replace' operation (i.e. ignored).
  * @author dmv
  * @since 2017 January 06
  */
@@ -87,6 +92,7 @@ public class ReplaceMarker {
     @Override
     public int hashCode() {
         if (hashCode != 0) return hashCode;
+        /* Ignore 'excluded' boolean */
         final int prime = 31;
         hashCode = 1;
         hashCode = prime * hashCode + lineNumber;
@@ -99,7 +105,8 @@ public class ReplaceMarker {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) 
             return false;
-        
+
+        /* Ignore 'excluded' boolean */
         ReplaceMarker other = (ReplaceMarker) obj;
         return lineNumber == other.lineNumber &&
                startIndex == other.startIndex;

@@ -108,6 +108,21 @@ public class ExclusionsTrie implements Exclusions {
     }
 
     @Override
+    public int numberOfPrefixes() {
+        return prefixes.size();
+    }
+
+    @Override
+    public int numberOfSuffixes() {
+        return suffixes.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return prefixes.isEmpty() && suffixes.isEmpty();
+    }
+
+    @Override
     public boolean containsPrefix(String prefix, boolean reverse) {
         return reverse ? prefixes.contains(reverse(prefix)) :
                          prefixes.contains(prefix);
@@ -140,6 +155,7 @@ public class ExclusionsTrie implements Exclusions {
     }
     
     private String reverse(String s) {
+        if (s == null || s.length() == 0) return "";
         return new StringBuilder(s).reverse().toString();
     }
     
@@ -158,14 +174,14 @@ public class ExclusionsTrie implements Exclusions {
     }
 
     private void addSuffix(String s) {
-        if (s == null) return;
+        if (s == null || s.length() == 0) return;
         if (s.length() > longestSuffix.length())
             longestSuffix = s;
         suffixes.add(s);
     }
     
     private void addPrefix(String p) {
-        if (p == null) return;
+        if (p == null || p.length() == 0) return;
         if (p.length() > longestPrefix.length())
             longestPrefix = p;
         prefixes.add(p);

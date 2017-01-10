@@ -18,9 +18,9 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 
-public class SearchFolderTest {
+public class SearchPathTest {
     
-    private SearchFolder target;
+    private SearchPath target;
     @Rule
     public ExpectedException expected = ExpectedException.none();
     
@@ -33,25 +33,23 @@ public class SearchFolderTest {
 
     @Before
     public void setUp() throws Exception {
-        target = new SearchFolderImpl();
+        target = new SearchPathImpl(folder);
     }
 
     @Test
     public void testSetFolder() {
-        assertTrue(Objects.isNull(target.getFolder()));
-        target.setFolder(folder);
-        assertThat(target.getFolder(), is(folder));
+        assertThat(target.getPath(), is(folder));
     }
 
     @Test
     public void testNullFolder() {
         expected.expect(NullPointerException.class);
-        target.setFolder(null);
+        target.setPath(null);
     }
 
     @Test
     public void testCharset() {
-        assertThat(target.getCharset(), is(SearchFolder.defaultCharset));
+        assertThat(target.getCharset(), is(SearchPath.defaultCharset));
         target.setCharset(charset);
         assertThat(target.getCharset(), is(charset));
     }
@@ -63,27 +61,30 @@ public class SearchFolderTest {
     }
 
     @Test
-    public void testSetFileTypes() {
-        assertTrue(Objects.isNull(target.getFileTypes()));
+    public void testSetNamePattern() {
+        assertTrue(Objects.isNull(target.getNamePattern()));
         
-        target.setFileTypes(types1);
-        PathMatcher fileTypes = target.getFileTypes();
+        target.setNamePattern(types1);
+        PathMatcher fileTypes = target.getNamePattern();
         for (String s : files1)
             assertTrue(s, fileTypes.matches(Paths.get(s)));
         
-        target.setFileTypes(new String[]{});
-        assertTrue(Objects.isNull(target.getFileTypes()));
+        target.setNamePattern(new String[]{});
+        assertTrue(Objects.isNull(target.getNamePattern()));
 
-        target.setFileTypes(types2);
-        fileTypes = target.getFileTypes();
+        //target.setNamePattern(null);
+        assertTrue(Objects.isNull(target.getNamePattern()));
+
+        target.setNamePattern(types2);
+        fileTypes = target.getNamePattern();
         for (String s : files1)
             assertTrue(s, fileTypes.matches(Paths.get(s)));
         
         try {
-            target.setFileTypes(illegalType);
+            target.setNamePattern(illegalType);
         } catch (Exception e) {
             assertTrue(e.getCause() instanceof IllegalArgumentException);
-            assertTrue(Objects.isNull(target.getFileTypes()));
+            assertTrue(Objects.isNull(target.getNamePattern()));
         }
     }
 

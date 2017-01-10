@@ -23,14 +23,14 @@ public interface SearchProfile {
     static final Charset defaultCharset = StandardCharsets.UTF_16;
     
     /**
-     * Get current charset. The {@link #defaultCharset} will be
+     * Get current Charset. The {@link #defaultCharset} will be
      * returned if it was not explicitly set.
-     * @return Current charset
+     * @return Current {@link Charset} 
      */
     Charset getCharset();
     
     /**
-     * Set charset which will be used for reading and 
+     * Set Charset which will be used for reading and 
      * writing into a file. If the null is passed 
      * then the {@link #defaultCharset} will be used
      * @param charset {@link Charset} 
@@ -38,7 +38,8 @@ public interface SearchProfile {
     SearchProfile setCharset(Charset charset);
     
     /**
-     * Will file names be searched and replaced or not
+     * Will file names be searched and replaced or not.
+     * This parameter is false by default.
      * @return true if file needs to be renamed
      */
     boolean isFileName();
@@ -46,21 +47,25 @@ public interface SearchProfile {
     /**
      * Set it to true if you need to rename files
      * with the same 'search and replace' rule as 
-     * for their content
+     * for their content. The word given in method
+     * {@link #setReplaceWith(String)} should not
+     * contain symbols that are invalid for filenames,
+     * it won't be enforced though.
      * @param filename true - rename file, false - skip file name
      */
     SearchProfile setFilename(boolean filename);
     
     /**
      * Get current string that is needed to be found and replaced.
-     * @return Current 'what to find' string. It can't be null
+     * @return Current 'what to find' string. It can't be null or empty
      */
     String getToFind();
     
     /**
      * Set string to be found and replaced.
      * It is not appropriate to have a null pointer
-     * or an empty string in this role
+     * or an empty string in this role.
+     * It should contain at least one character.
      * @param toFind String to be found
      * @throws IllegalArgumentException if given argument is null or empty
      */
@@ -68,7 +73,7 @@ public interface SearchProfile {
 
     /**
      * Get current string that will be placed instead
-     * of 'what to find' one, can be empty string
+     * of 'what to find' one, can be empty string.
      * @return current string to be replaced with, or empty string
      *         if it was not specified before or previous set 
      *         was given null or empty string
@@ -78,8 +83,10 @@ public interface SearchProfile {
     /**
      * Set new string that will be placed instead 
      * of 'what to find'. If this object is null or empty
-     * means that found strings will be removed
-     * (i.e. replaced with 0-length strings).
+     * means that found strings will be removed.
+     * Note, that if {@link #setFilename(boolean)} set to true
+     * this string should not contain symbols that are invalid 
+     * for filenames, it won't be enforced or checked though.
      * @param replaceWith String to be replaced with
      */
     SearchProfile setReplaceWith(String replaceWith);
@@ -101,4 +108,10 @@ public interface SearchProfile {
      * @param exclusions New set of exclusions
      */
     SearchProfile setExclusions(Exclusions exclusions);
+
+    /**
+     * Create a new shallow copy of the underlying object
+     * @return shallow copy of this object
+     */
+    SearchProfile clone();
 }

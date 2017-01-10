@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import dmv.desktop.searchandreplace.model.*;
-import dmv.desktop.searchandreplace.worker.FileReplacer;
-import dmv.desktop.searchandreplace.worker.FileReplacerImpl;
 
 
 /**
@@ -36,11 +34,11 @@ import dmv.desktop.searchandreplace.worker.FileReplacerImpl;
  * @since 2017 January 02
  */
 public class FolderWalker
-        implements SearchAndReplace<SearchFolder, SearchProfile, FileSearchResult> {
+        implements SearchAndReplace<SearchPath, SearchProfile, SearchResult> {
     
     private static final ForkJoinPool COMMON_POOL = ForkJoinPool.commonPool();
     
-    private SearchFolder folder;
+    private SearchPath folder;
     private SearchProfile profile;
     private Queue<FileReplacer> foundFiles;
     private State state;
@@ -51,18 +49,18 @@ public class FolderWalker
      * @param folder 'where to search' parameter
      * @param profile 'what to find' parameter
      */
-    public FolderWalker(SearchFolder folder, SearchProfile profile) {
+    public FolderWalker(SearchPath folder, SearchProfile profile) {
         setRootElement(folder);
         setProfile(profile);
     }
 
     @Override
-    public SearchFolder getRootElement() {
+    public SearchPath getRootElement() {
         return folder;
     }
 
     @Override
-    public void setRootElement(SearchFolder folder) {
+    public void setRootElement(SearchPath folder) {
         Objects.requireNonNull(folder);
         state = BEFORE_FIND;
         this.folder = folder;
@@ -80,15 +78,15 @@ public class FolderWalker
     }
 
     @Override
-    public Stream<FileSearchResult> preview(Executor exec) {
+    public Stream<SearchResult> preview(Executor exec) {
         Objects.requireNonNull(exec);
         if (folder == null || profile == null)
             throw new IllegalStateException("Either folder or profile was not specified");
         try {
-            List<CompletableFuture<FileSearchResult>> collect = 
+            List<CompletableFuture<SearchResult>> collect = 
                     getFoundFiles(exec)
                          .map(future -> future.thenApplyAsync(this::produceResult, exec))
-                         .collect(Collectors.<CompletableFuture<FileSearchResult>>toList());
+                         .collect(Collectors.<CompletableFuture<SearchResult>>toList());
             state = AFTER_FOUND;
             return collect.stream()
                           .map(this::getResult);
@@ -102,28 +100,28 @@ public class FolderWalker
     }
 
     @Override
-    public Stream<FileSearchResult> preview() {
+    public Stream<SearchResult> preview() {
         /* Explicitly set the default pool of CompletableFuture */
         return preview(COMMON_POOL);
     }
 
     @Override
-    public Stream<FileSearchResult> replace() {
+    public Stream<SearchResult> replace() {
         // TODO create replace method
         return null;
     }
 
     @Override
-    public Stream<FileSearchResult> replace(Executor exec) {
+    public Stream<SearchResult> replace(Executor exec) {
         // TODO create replace method
         return null;
     }
 
-    private FileSearchResult getResult(CompletableFuture<FileSearchResult> future) {
+    private SearchResult getResult(CompletableFuture<SearchResult> future) {
         try {
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
-            return new FileSearchResultImpl(0, null, null, true, e);
+            return new SearchResultImpl(0, null, null, true, e);
         }
     }
     
@@ -134,7 +132,7 @@ public class FolderWalker
         return replacer;
     }
     
-    private FileSearchResult produceResult(FileReplacer replacer) {
+    private SearchResult produceResult(FileReplacer replacer) {
         return replacer.getResult();
     }
     
@@ -145,7 +143,7 @@ public class FolderWalker
     
     private boolean isPathValid(Path file) {
         return !Files.isDirectory(file) &&
-                folder.getFileTypes().matches(file.getFileName());
+                folder.getNamePattern().matches(file.getFileName());
     }
     
     private Stream<CompletableFuture<FileReplacer>> getFoundFiles(Executor exec) throws IOException {
@@ -155,7 +153,7 @@ public class FolderWalker
         }
         foundFiles = new ConcurrentLinkedQueue<>();
         return Files
-                .walk(folder.getFolder(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
+                .walk(folder.getPath(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
                 .filter(this::isPathValid)
                 .map(file -> new FileReplacerImpl(file, profile))
                 .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec))

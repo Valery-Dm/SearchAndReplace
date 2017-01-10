@@ -8,16 +8,15 @@ import dmv.desktop.searchandreplace.service.SearchAndReplace;
 
 public class ReplaceFilesConsoleApplication {
     
-    private SearchAndReplace<SearchFolder, SearchProfile, List<FileSearchResult>> replacer;
+    private SearchAndReplace<SearchPath, SearchProfile, List<SearchResult>> replacer;
 
     public ReplaceFilesConsoleApplication() {
         
     }
     
     public static void main(String[] args) {
-        SearchFolder folder = new SearchFolderImpl();
-        folder.setFolder(Paths.get("src/test/resources"))
-              .setFileTypes("*.java", "*.project", "*.xml")
+        SearchPath folder = new SearchPathImpl(Paths.get("src/test/resources"));
+        folder.setNamePattern("*.java", "*.project", "*.xml")
               .setSubfolders(true);
         SearchProfile profile = new SearchProfileImpl("test");
         

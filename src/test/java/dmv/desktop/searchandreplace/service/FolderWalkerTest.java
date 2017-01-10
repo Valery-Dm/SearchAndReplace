@@ -52,8 +52,8 @@ public class FolderWalkerTest {
     private int L = 10, LL = 10;
     private Random rand = new Random();
     
-    private SearchAndReplace<SearchFolder, SearchProfile, FileSearchResult> target;
-    private SearchFolder rootFolder;
+    private SearchAndReplace<SearchPath, SearchProfile, SearchResult> target;
+    private SearchPath rootFolder;
     private SearchProfile profile;
     
     @BeforeClass
@@ -97,7 +97,7 @@ public class FolderWalkerTest {
               .forEach(result -> testResult(result, replaceWith, excludeAll, true, true));
     }
 
-    private Object testResult(FileSearchResult result, 
+    private Object testResult(SearchResult result, 
                               String replaceWith,
                               Exclusions exclusions, 
                               boolean subfolders, 
@@ -116,7 +116,7 @@ public class FolderWalkerTest {
 
     @After
     public void removeFiles() throws IOException {
-        Files.walk(rootFolder.getFolder())
+        Files.walk(rootFolder.getPath())
              .filter(Files::isRegularFile)
              .forEach(t -> {
                 try {
@@ -185,9 +185,9 @@ public class FolderWalkerTest {
 
     private FolderWalker createTarget(String replaceWith, Exclusions exclusions,
                                       boolean subfolders, boolean filenames) {
-        rootFolder = new SearchFolderImpl(Paths.get(dirName));
+        rootFolder = new SearchPathImpl(Paths.get(dirName));
         rootFolder.setCharset(charset)
-                  .setFileTypes(includePaths)
+                  .setNamePattern(includePaths)
                   .setSubfolders(subfolders);
         
         profile = new SearchProfileImpl(toFind);

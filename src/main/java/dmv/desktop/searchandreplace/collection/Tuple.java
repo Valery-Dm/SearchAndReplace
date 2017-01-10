@@ -224,7 +224,7 @@ public class Tuple<F, L> {
 
     @Override
     public String toString() {
-        return String.format("Tuple [first=%s, last=%s]", first, last);
+        return String.format("T[%s, %s]", first, last);
     }
     
 }

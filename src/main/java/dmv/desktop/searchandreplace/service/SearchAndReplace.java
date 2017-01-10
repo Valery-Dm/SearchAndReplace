@@ -3,8 +3,11 @@
  */
 package dmv.desktop.searchandreplace.service;
 
+import java.nio.charset.Charset;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
+
+import dmv.desktop.searchandreplace.model.Exclusions;
 
 /**
  * <tt>SearchAndReplace.java</tt> API describes methods
@@ -20,13 +23,62 @@ import java.util.stream.Stream;
 public interface SearchAndReplace<W, H, R> {
     
     /**
-     * Describes state of current operation.
-     * Can be used for caching and cache overriding
-     * operations or the like and for a feedback.
+     * Describes the State of current operation,
+     * which will be stored in Result and returned.
+     * BEFORE_FIND means that no file has been read,
+     * AFTER_FOUND: file has been read but not computed,
+     * COMPUTED: file's content has been computed (virtually replaced) 
+     * REPLACED: computed content has been written back to a file
+     * INTERRUPTED: any of operations above has been interrupted 
+     * with an Exception, that exception will be returned as a part
+     * of Result Type (stored inside exceptional Result)
      */
     static enum State {
-        BEFORE_FIND, AFTER_FOUND, REPLACED,
-        PARTIALLY_REPLACED, INTERRUPTED
+        /**
+         * Empty object as no file has been read yet
+         * or after 'Where to find' parameter was reset.
+         * <p>
+         * It will also fall back into this State from any
+         * other except {@link #REPLACED} if new {@link Charset}
+         * was given in a profile, so to fix reading errors.
+         * Next state will be {@link #AFTER_FOUND}
+         */
+        BEFORE_FIND, 
+        /**
+         * Intermittent state means that 'What to find' has changed
+         * and cached content needs to be rescanned.
+         * Next state will be {@link #AFTER_FOUND}
+         */
+        FIND_OTHER,
+        /**
+         * Another intermittent state means that set of {@link Exclusions}
+         * was replaced and all found markers needs to be rescanned.
+         * Next state will be {@link #AFTER_FOUND}
+         */
+        EXCLUDE_OTHER,
+        /**
+         * File has been read and cached, and markers of 'What to find' set
+         * and marked as excluded according to current profile, nothing is replaced yet.
+         */
+        AFTER_FOUND,
+        /**
+         * Usually triggered by {@link SearchAndReplace#preview() preview}
+         * method. Means that all computations were done and Result is ready
+         */
+        COMPUTED, 
+        /**
+         * Result is written to a file. All operations completed successfully.
+         * <p>
+         * If new profile was set with a new {@link Charset} while object in
+         * this State, the next call to {@link SearchAndReplace#replace() replace}
+         * method will write cached content to a file with that new encoding.
+         */
+        REPLACED, 
+        /**
+         * Any of operations above was interrupted. The cause of interruption
+         * will be stored inside Result object and returned with it.
+         */
+        INTERRUPTED
     }
     
     /**

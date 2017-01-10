@@ -8,39 +8,39 @@ import dmv.desktop.searchandreplace.exceptions.ResourceCantBeModifiedException;
 import dmv.desktop.searchandreplace.exceptions.ResourceNotExistsException;
 
 /**
- * Class <tt>FileSearchResult.java</tt> is one of variants
+ * Class <tt>SearchResult.java</tt> is one of variants
  * of how results should be delivered, especially for a
  * 'preview' part. It is planned to be an immutable object
- * of strings 'before' and 'after' replacements were made.
+ * of tuples with strings 'before' and 'after' replacements were made.
  * One Instance per file with any modifications or exceptions
  * happened.
  * @author dmv
  * @since 2017 January 01
  */
-public interface FileSearchResult {
+public interface SearchResult {
 
     /**
-     * Get name of file, possibly modified.
+     * Get name of a file, possibly modified.
      * First String is the original name.
      * Second is the modified version or,
      * if second is null, there were no modifications made
      * @return Tuple with original and modified file name,
      *         second parameter may be null if no modifications
-     *         were made within file name
+     *         were made within the file name
      */
     Tuple<Path, Path> getModifiedName();
     
     /**
      * List of file lines before and after modifications.
      * List entries should not be null. The whole list
-     * may be null if processing was interrupted exceptionally
+     * may be null if processing was interrupted exceptionally.
+     * Only changed lines should be listed.
      * @return List of file lines before and after modifications.
      */
     List<Tuple<String, String>> getModifiedContent();
     
     /**
-     * Number of modifications made including file name
-     * replacements.
+     * Number of modifications made including changes made in a file name
      * @return Number of modifications made
      */
     int numberOfModificationsMade();

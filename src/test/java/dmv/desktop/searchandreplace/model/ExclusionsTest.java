@@ -59,7 +59,8 @@ public class ExclusionsTest {
         suffixes.add(otherSuffix);
         
         target = new ExclusionsTrie(prefixes, suffixes, true);
-        
+
+        assertFalse(target.isEmpty());
         checkSuffixes();
     }
 
@@ -111,6 +112,9 @@ public class ExclusionsTest {
 
     private void checkPrefixes() {
         assertThat(target.maxPrefixSize(), is(prefix.length()));
+
+        assertFalse(target.containsPrefix(null, true));
+        assertFalse(target.containsPrefix("", true));
         
         assertTrue(target.containsPrefix(reversedPrefix, false));
         assertFalse(target.containsPrefix(reversedOtherPrefix, true));
@@ -124,12 +128,37 @@ public class ExclusionsTest {
     }
 
     @Test
+    public void nullAndEmpty() {
+        prefixes.add("");
+        prefixes.add(null);
+        suffixes.add("");
+        suffixes.add(null);
+        
+        target = new ExclusionsTrie(prefixes, suffixes, true);
+
+        assertTrue(target.isEmpty());
+        assertThat(target.maxPrefixSize(), is(0));
+        assertThat(target.maxSuffixSize(), is(0));
+        assertFalse(target.containsPrefix(null, true));
+        assertFalse(target.containsPrefix("", true));
+
+        target = new ExclusionsTrie(prefixes, null, false);
+
+        assertTrue(target.isEmpty());
+        assertThat(target.numberOfPrefixes(), is(0));
+        assertThat(target.numberOfSuffixes(), is(0));
+        assertFalse(target.containsPrefix(null, true));
+        assertFalse(target.containsPrefix("", true));
+    }
+
+    @Test
     public void containsPrefix2() {
         prefixes.add(prefix);
         prefixes.add(otherPrefix);
         
         target = new ExclusionsTrie(prefixes, suffixes, true);
 
+        assertFalse(target.isEmpty());
         checkPrefixes();
     }
 
@@ -148,6 +177,7 @@ public class ExclusionsTest {
     public void containsPrefix4() {
         exclude.add(prefix + toFind);
         exclude.add(otherPrefix + toFind);
+        exclude.add(toFind);
         
         target = new ExclusionsTrie(exclude, toFind, false);
 

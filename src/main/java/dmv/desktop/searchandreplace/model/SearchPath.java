@@ -10,12 +10,12 @@ import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 
 /**
- * Interface <tt>SearchFolder.java</tt> describes an object
- * that will collect information about some folder, and how to search it
+ * Interface <tt>SearchPath.java</tt> describes an object
+ * that will collect information about some path, and how to search it
  * @author dmv
  * @since 2016 December 31
  */
-public interface SearchFolder {
+public interface SearchPath {
     
     /**
      * Default Charset that will be used for reading and writing
@@ -24,26 +24,26 @@ public interface SearchFolder {
     static final Charset defaultCharset = StandardCharsets.UTF_16; 
 
     /**
-     * Set root folder to be search inside
-     * @param folder A path to a folder
+     * Set the path to be searched. Usually it's a folder
+     * @param path A path to a file or folder
      * @throws NullPointerException if argument is null
      */
-    SearchFolder setFolder(Path folder);
+    SearchPath setPath(Path path);
     
     /**
-     * Get current folder
-     * @return current folder
+     * Get current path
+     * @return current Path to search 
      */
-    Path getFolder();
+    Path getPath();
     
     /**
      * Set charset which will be used for reading and writing.
-     * If not set, the {@link SearchFolder#defaultCharset defaultCharset} 
+     * If not set, the {@link SearchPath#defaultCharset defaultCharset} 
      * will be used.
      * @param charset A charset object
      * @throws NullPointerException if argument is null
      */
-    SearchFolder setCharset(Charset charset);
+    SearchPath setCharset(Charset charset);
     
     /**
      * Get current Charset
@@ -52,31 +52,33 @@ public interface SearchFolder {
     Charset getCharset();
     
     /**
-     * Add a file types that will be searched through.
-     * These are NOT MIME types but naming patterns.
+     * Add a file naming patterns that will be searched through.
      * Should be eligible patterns like 'partofthename', '*.txt', 'foo/bar'.
      * The {@link FileSystem#getPathMatcher(String) PathMatcher} 
-     * with 'glob:*.{given fileTypes}' pattern will be constructed
+     * with 'glob:*.{given pattern}' object will be constructed
      * <p>
-     * Previously added types will be replaced by this set
-     * or removed if new set is empty.
-     * @param fileTypes file types to search through
+     * Previously added patterns will be replaced by this set
+     * or removed if new set is empty or null.
+     * @param pattern naming patterns for files to search
+     * @throws IllegalArgumentException if malformed pattern provided
      */
-    SearchFolder setFileTypes(String... fileTypes);
+    SearchPath setNamePattern(String... pattern);
     
     /**
-     * Get a PathMatcher object with added file types.
-     * To make changes in what file types to search 
-     * use {@link #setFileTypes(String...)} method.
-     * @return A PathMatcher object with currently added file types
+     * Get a PathMatcher object with added naming patterns.
+     * To make changes in what files needed to be searched
+     * use {@link #setNamePattern(String...)} method.
+     * @return A PathMatcher object with currently added patterns
+     *         or null if no patterns have been set
      */
-    PathMatcher getFileTypes();
+    PathMatcher getNamePattern();
     
     /**
-     * Set if subfolders should also be searched
+     * Set if subfolders should also be searched (if given {@code path}
+     * is a directory then subdirectories will also be scanned)
      * @param subfolders true if you want subfolders to be searched
      */
-    SearchFolder setSubfolders(boolean subfolders);
+    SearchPath setSubfolders(boolean subfolders);
     
     /**
      * If subfolders are set to be searched
