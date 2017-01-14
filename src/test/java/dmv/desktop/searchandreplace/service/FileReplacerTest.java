@@ -15,7 +15,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -24,6 +23,7 @@ import org.junit.*;
 import org.junit.rules.ExpectedException;
 
 import dmv.desktop.searchandreplace.collection.Tuple;
+import dmv.desktop.searchandreplace.collection.TupleImpl;
 import dmv.desktop.searchandreplace.model.*;
 
 
@@ -32,44 +32,54 @@ public abstract class FileReplacerTest {
     @Rule
     public ExpectedException expected = ExpectedException.none();
     
+    /* These are just defaults, they may be overridden, but will be restored */
     private static String toFind = "FindMe";
     private static String replaceWith = "Replaced";
+    private static Charset charset = StandardCharsets.UTF_8;
+    /* Test files */
     private static Path file1 = Paths.get("src/test/resources/replacertest/file1.txt");
     private static Path file2 = Paths.get("src/test/resources/replacertest/file2"+toFind+".txt");
     private static Path file2Renamed = Paths.get("src/test/resources/replacertest/file2.txt");
     private static Path nonReadable = Paths.get("src/test/resources/replacertest/nonReadable.txt");
+    /* This block of variables is not for changes */
     private static List<String> origContent1;
     private static List<Tuple<String, String>> modContent1;
     private static List<String> origContent2;
     private static List<Tuple<String, String>> modContent2;
     private static int modifications1;
     private static int modifications2;
-    
+    /* Main changeable instances */
     private FileReplacer target1;
     private FileReplacer target2;
     private SearchProfile profile;
-    private Charset charset = StandardCharsets.UTF_8;
 
+    /* Get actual implementation */
     protected abstract FileReplacer createTarget(Path file, SearchProfile profile);
+    /* Do we need to reset after file's content changes */
+    protected abstract boolean isContentCached();
+    
+    /* prepare BeforeClass and Before tests */
     
     @BeforeClass
     public static void createContent() throws IOException {
-        modContent1 = getModContent(toFind, replaceWith);
-        origContent1 = getContentFrom(modContent1);
-        origContent1.add("some text without *that* word");
-        modContent2 = getModContent(toFind, "");
-        origContent2 = getContentFrom(modContent2);
+        modContent1  = getConstantContent(toFind, replaceWith);
+        origContent1 = getFileContent(modContent1);
+        modContent2  = getConstantContent(toFind, "");
+        origContent2 = getFileContent(modContent2);
         modifications1 = 4;
         modifications2 = 5;
     }
 
     @Before
     public void setUp() throws Exception {
-        /* restore static variables */
+        /* restore default static variables */
         toFind = "FindMe";
         replaceWith = "Replaced";
+        charset = StandardCharsets.UTF_8;
         file1 = Paths.get("src/test/resources/replacertest/file1.txt");
         file2 = Paths.get("src/test/resources/replacertest/file2"+toFind+".txt");
+        file2Renamed = Paths.get("src/test/resources/replacertest/file2.txt");
+        nonReadable = Paths.get("src/test/resources/replacertest/nonReadable.txt");
         
         /* restore default file contents */
         Files.deleteIfExists(file1);
@@ -82,10 +92,15 @@ public abstract class FileReplacerTest {
                            .setReplaceWith(replaceWith)
                            .setCharset(charset);
         target1 = createTarget(file1, profile);
+        
         profile.setReplaceWith("")
                .setFilename(true);
         target2 = createTarget(file2, profile);
+        
+        profile.setReplaceWith(replaceWith);
     }
+    
+    /* Basic API methods tests */
     
     @Test
     public void getInitialState() {
@@ -93,16 +108,18 @@ public abstract class FileReplacerTest {
     }
 
     @Test
-    public void setNewFile() {
+    public void setNewFile() throws Throwable {
+        /* advance state */
         target1.hasReplacements();
         assertThat(target1.getState(), is(AFTER_FOUND));
         
+        /* check reset */
         target1.setFile(file1);
         assertThat(target1.getState(), is(BEFORE_FIND));
         
         /* non-existing path */
         target1.setFile(Paths.get(",l"));
-        assertTrue(target1.getResult().isExceptional());
+        checkResultExpect(target1.getResult(), null, null, 0, true, NoSuchFileException.class);
         
         expected.expect(NullPointerException.class);
         target1.setFile(null);
@@ -115,24 +132,19 @@ public abstract class FileReplacerTest {
         target1.setProfile(profile);
         assertThat(target1.getState(), is(BEFORE_FIND));
         
-        profile.setCharset(StandardCharsets.US_ASCII);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setCharset(StandardCharsets.US_ASCII));
         assertThat(target1.getState(), is(BEFORE_FIND));
         
-        profile.setToFind("other" + toFind);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setToFind("other" + toFind));
         assertThat(target1.getState(), is(BEFORE_FIND));
         
-        profile.setExclusions(new ExclusionsTrie(Arrays.asList("pre"), null, false));
-        target1.setProfile(profile);
+        target1.setProfile(profile.setExclusions(new ExclusionsTrie(Arrays.asList("pre"), null, false)));
         assertThat(target1.getState(), is(BEFORE_FIND));
 
-        profile.setReplaceWith(replaceWith + "other");
-        target1.setProfile(profile);
+        target1.setProfile(profile.setReplaceWith(replaceWith + "other"));
         assertThat(target1.getState(), is(BEFORE_FIND));
         
-        profile.setFilename(true);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setFilename(true));
         assertThat(target1.getState(), is(BEFORE_FIND));
         
         expected.expect(NullPointerException.class);
@@ -148,33 +160,76 @@ public abstract class FileReplacerTest {
         /* create new profile */
         profile = new SearchProfileImpl(toFind);
         
-        profile.setCharset(StandardCharsets.US_ASCII);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setCharset(StandardCharsets.US_ASCII));
         assertThat(target1.getState(), is(BEFORE_FIND));
         
         target1.getResult();
         
-        profile.setToFind("other" + toFind);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setToFind("other" + toFind));
         assertThat(target1.getState(), is(FIND_OTHER));
         
         target1.getResult();
         
-        profile.setExclusions(new ExclusionsTrie(Arrays.asList("pre"), null, false));
-        target1.setProfile(profile);
+        target1.setProfile(profile.setExclusions(new ExclusionsTrie(Arrays.asList("pre"), null, false)));
         assertThat(target1.getState(), is(EXCLUDE_OTHER));
 
         target1.getResult();
         
-        profile.setReplaceWith(replaceWith + "other");
-        target1.setProfile(profile);
+        target1.setProfile(profile.setReplaceWith(replaceWith + "other"));
         assertThat(target1.getState(), is(AFTER_FOUND));
         
         target1.getResult();
         
-        profile.setFilename(true);
-        target1.setProfile(profile);
+        target1.setProfile(profile.setFilename(true));
         assertThat(target1.getState(), is(COMPUTED));
+    }
+    
+    @Test
+    public void resetProfileInnerCheck() {
+        /* check renaming rule changes */
+        
+        target2.setProfile(profile.setFilename(true).setReplaceWith(""));
+        
+        //cancel renaming
+        target2.setProfile(profile.setFilename(false));
+        SearchResult result = target2.getResult();
+        assertThat(result.getModifiedName().getLast(), is(nullValue()));
+        assertThat(result.numberOfModificationsMade(), is(modifications2 - 1));
+        
+        // repeat
+        target2.setProfile(profile.setFilename(false));
+        result = target2.getResult();
+        assertThat(result.getModifiedName().getLast(), is(nullValue()));
+        assertThat(result.numberOfModificationsMade(), is(modifications2 - 1));
+        
+        // revert back
+        target2.setProfile(profile.setFilename(true));
+        result = target2.getResult();
+        assertThat(result.getModifiedName().getLast(), is(file2Renamed));
+        assertThat(result.numberOfModificationsMade(), is(modifications2));
+        
+        /* exclude filename marker */
+        
+        target2.setProfile(
+                profile.setFilename(true)
+                       .setExclusions(new ExclusionsTrie(Arrays.asList("2"), null, false)));
+        result = target2.getResult();
+        assertThat(result.getModifiedName().getLast(), is(nullValue()));
+        assertThat(result.numberOfModificationsMade(), is(modifications2 - 1));
+        
+        /* reset filename after exception */
+        
+        target2.setFile(nonReadable);
+        target2.getResult();
+        
+        // interrupted state is not canceled by this profile change
+        target2.setProfile(profile.setFilename(false));
+        result = target2.getResult();
+        assertTrue(result.isExceptional());
+        
+        target2.setProfile(profile.setFilename(true));
+        result = target2.getResult();
+        assertTrue(result.isExceptional());
     }
 
     @Test
@@ -183,13 +238,24 @@ public abstract class FileReplacerTest {
         assertTrue(target1.hasReplacements());
 
         /* change second TestFile so it will have toFind word in filename only */
-        modContent2 = getModContent(toFind.substring(0, toFind.length() - 1), "");
-        origContent2 = getContentFrom(modContent2);
-        Files.write(file2, origContent2, TRUNCATE_EXISTING);
-        /* filename replacements */
+        List<Tuple<String, String>> modContent = 
+                getConstantContent(toFind.substring(0, toFind.length() - 1), "");
+        List<String> origContent = getFileContent(modContent);
+        Files.write(file2, origContent, TRUNCATE_EXISTING);
+        /* filename replacements required */
         assertTrue(target2.hasReplacements());
         
-        /* change profile so nothing will be found in file */
+        /* cancel renaming (but replacements are still possible) */
+        target2.setProfile(profile.setFilename(false));
+        assertThat(target2.getResult().getModifiedName().getLast(), is(nullValue()));
+        assertTrue(target2.hasReplacements());
+        
+        /* return renaming */
+        target2.setProfile(profile.setFilename(true).setReplaceWith(""));
+        assertThat(target2.getResult().getModifiedName().getLast(), is(file2Renamed));
+        assertTrue(target2.hasReplacements());
+        
+        /* change toFind word so nothing will be found in files */
         profile.setToFind("other" + toFind);
         target1.setProfile(profile);
         assertFalse(target1.hasReplacements());
@@ -200,24 +266,125 @@ public abstract class FileReplacerTest {
     @Test
     public void getResult() throws Throwable {
         
+        /* default results */
+        
         checkResultExpect(target1.getResult(), modContent1, null, modifications1, false, null);
         
         checkResultExpect(target2.getResult(), modContent2, file2Renamed, modifications2, false, null);
         
         /* exceptional results */
 
-        profile.setCharset(StandardCharsets.UTF_16LE);
-        target1.setProfile(profile);
-        checkResultExpect(target1.getResult(), null, null, 0, true, MalformedInputException.class);
-        
-        profile.setCharset(charset);
-        target1.setProfile(profile);
+//        target1.setProfile(profile.setCharset(StandardCharsets.UTF_16LE));
+//        checkResultExpect(target1.getResult(), null, null, 0, true, MalformedInputException.class);
         
         target1.setFile(nonReadable);
         checkResultExpect(target1.getResult(), null, null, 0, true, AccessDeniedException.class);
+    }
+    
+    /* correctness tests */
+    
+    @Test
+    public void correctFullWords() throws IOException {
+        /*
+         * replaceWith = Replaced
+         * toFind = FindMe
+         */
+        prepareProfile(target1, toFind, replaceWith);
+        
+        Tuple<String, String> tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
+                                                      "ReplacedljdlfReplacedklkFFReplacedk;kpoReplacedklklReplaced");
+        Files.write(file1, Arrays.asList(tuple.getFirst()), TRUNCATE_EXISTING);
+        assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+        
+        /* Rescan cached content */
+        if (isContentCached()) {
+            /*
+             * replaceWith = ""
+             * toFind = FindMe
+             */
+            prepareProfile(target1, toFind, "");
+            tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
+                                    "ljdlfklkFFk;kpoklkl");
+            assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+            
+            /*
+             * replaceWith = Replaced
+             * toFind = F
+             */
+            prepareProfile(target1, "F", replaceWith);
+            tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
+                                    "ReplacedindMeljdlfReplacedindMeklkReplacedReplaced" +
+                                    "ReplacedindMek;kpoReplacedindMeklklReplacedindMe");
+            assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+        }
+    }
+
+    @Test
+    public void correctFullWordsWithRepeatitions() throws IOException {
+        /*
+         * replaceWith = Replaced
+         * toFind = FindMe
+         */
+        prepareProfile(target1, toFind, replaceWith);
+
+        Tuple<String, String> tuple = new TupleImpl<>("FFindMeljdlfFindMeFindMeklkFFFndMek;kpoFindMeFeeklklFindMee", 
+                                                      "FReplacedljdlfReplacedReplacedklkFFFndMek;kpoReplacedFeeklklReplacede");
+        Files.write(file1, Arrays.asList(tuple.getFirst()), TRUNCATE_EXISTING);
+        assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+    }
+    
+    @Test
+    public void correctEmptyReplace() throws IOException {
+        /*
+         * replaceWith = ""
+         * toFind = FindMe
+         */
+        prepareProfile(target1, toFind, "");
+        Tuple<String, String> tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
+                                                      "ljdlfklkFFk;kpoklkl");
+        Files.write(file1, Arrays.asList(tuple.getFirst()), TRUNCATE_EXISTING);
+        assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+    }
+    
+    @Test
+    public void correctOneLetterToFind() throws IOException {
+        /*
+         * replaceWith = Replaced
+         * toFind = F
+         */
+        prepareProfile(target1, "F", replaceWith);
+        Tuple<String, String> tuple = new TupleImpl<>("FFashjdFjklFFaFaF;lkFFF;l;oFF", 
+                                                      "ReplacedReplacedashjdReplacedjklReplacedReplaceda" +
+                                                      "ReplacedaReplaced;lkReplacedReplacedReplaced;l;oReplacedReplaced");
+        Files.write(file1, Arrays.asList(tuple.getFirst()), TRUNCATE_EXISTING);
+        assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
+    }
+    
+    @Test
+    public void getRandomResult() throws IOException {
+        List<Tuple<String, String>> randomContent;
+        List<String> fileContent;
+        String[] exclude = prepareProfile(target1, toFind, replaceWith);;
+        
+        int T = 100;
+        while (T-- > 0) {
+            randomContent = getRandomContent(exclude, toFind, replaceWith);
+            fileContent = getFileContent(randomContent);
+            
+            //printContent(randomContent);
+            
+            Files.write(file1, fileContent, TRUNCATE_EXISTING);
+            
+            // remove cached result
+            if (isContentCached()) target1.setFile(file1);
+            
+            assertThat(target1.getResult().getModifiedContent(), is(randomContent));
+        }
         
     }
 
+    /* After and AfterClass cleanups */
+    
     @After
     public void reset() throws IOException {
 //        Files.setAttribute(file1, "dos:readonly", false);
@@ -231,13 +398,39 @@ public abstract class FileReplacerTest {
         Files.deleteIfExists(file2);
     }
 
+    /* Helper methods */
+    
+    @SuppressWarnings("unused")
+    private void printContent(List<Tuple<String, String>> content) {
+        content.stream()
+               .map(tuple -> tuple.getFirst() + "\n" + tuple.getLast() + "\n")
+               .forEach(System.out::println);;
+    }
+
+    private String[] prepareProfile(FileReplacer target, String toFind, String replaceWith) {
+        String[] exclude = new String[]{"somePrefix" + toFind, 
+                                        "otherPrefix" + toFind,
+                                        "  !!!  " + toFind,
+                                        toFind + "someSuffix",
+                                        toFind + "otherSuffix",
+                                        toFind + "  ???  ", 
+                                        "somePrefix" + toFind + "someSuffix", 
+                                        "otherPrefix" + toFind + "otherSuffix"};
+
+        profile.setToFind(toFind)
+               .setReplaceWith(replaceWith)
+               .setExclusions(new ExclusionsTrie(new TreeSet<>(Arrays.asList(exclude)), toFind, true));
+        target.setProfile(profile);
+        return exclude;
+    }
+
     private void checkResultExpect(SearchResult result, 
-                                 List<Tuple<String, String>> modContent, 
-                                 Path modName, 
-                                 int modifications, 
-                                 boolean exceptional, 
-                                 Class<? extends Throwable> cause) throws Throwable {
-        if (exceptional) {
+                                   List<Tuple<String, String>> modContent, 
+                                   Path modName, 
+                                   int modifications, 
+                                   boolean exceptional, 
+                                   Class<? extends Throwable> cause) throws Throwable {
+        if (exceptional) { 
             assertThat(result.getModifiedName(), is(nullValue()));
             assertTrue(result.getCause().getClass() == cause);
         } else {
@@ -248,32 +441,33 @@ public abstract class FileReplacerTest {
         assertThat(result.numberOfModificationsMade(), is(modifications));
         assertTrue(result.isExceptional() == exceptional);
     }
-    
-    private static List<String> getContentFrom(List<Tuple<String, String>> modContent) {
-        return modContent.stream()
-                         .map(tuple -> tuple.getFirst())
-                         .collect(toList());
+
+    private static List<String> getFileContent(List<Tuple<String, String>> content) {
+        return content.stream()
+                      .map(tuple -> tuple.getFirst())
+                      .collect(toList());
     }
 
-    private static List<Tuple<String, String>> getModContent(String toFind, String replaceWith) {
-        return Arrays.asList(new Tuple<>("some text with " + toFind + " word",
-                                         "some text with " + replaceWith + " word"),
-                             new Tuple<>("another text that contains at the end " + toFind,
-                                         "another text that contains at the end " + replaceWith),
-                             new Tuple<>(toFind + " at the beginning and " + toFind + " again", 
-                                         replaceWith + " at the beginning and " + replaceWith + " again"));
+    private static List<Tuple<String, String>> getConstantContent(String toFind, String replaceWith) {
+        return Arrays.asList(new TupleImpl<>("some text without *that* word", null),
+                             new TupleImpl<>("some text without *that* word", null),
+                             new TupleImpl<>("some text with " + toFind + " word",
+                                             "some text with " + replaceWith + " word"),
+                             new TupleImpl<>("another text that contains at the end " + toFind,
+                                             "another text that contains at the end " + replaceWith),
+                             new TupleImpl<>("some text without *that* word", null),
+                             new TupleImpl<>(toFind + " at the beginning and " + toFind + " again", 
+                                             replaceWith + " at the beginning and " + replaceWith + " again"),
+                             new TupleImpl<>("some text without *that* word", null));
     }
     
-    @SuppressWarnings("unused")
     private static List<Tuple<String, String>> getRandomContent(String[] notReplace, 
-                                                                   String toFind, String replaceWith) {
-        List<Tuple<String, String>> fileContent = new ArrayList<>();
-        Tuple<String, String> tuple = new Tuple<>();
-        int lines = 20, lineLength = 30, charBound = 100, charShift = 30;
+                                                               String toFind, String replaceWith) {
+        List<Tuple<String, String>> content = new ArrayList<>();
+        int lines = 10, lineLength = 10, charBound = 100, charShift = 50;
         Random rand = new Random();
         StringBuilder origLine = new StringBuilder(lineLength);
         StringBuilder modLine = new StringBuilder(lineLength);
-        String excluded = null;
         boolean replaced = false;
         while (lines-- > 0) {
             for (int i = 0; i < lineLength; i++) {
@@ -284,22 +478,21 @@ public abstract class FileReplacerTest {
                     modLine.append(replaceWith);
                     replaced = true;
                 } else 
-                    appendBoth(origLine, modLine, String.valueOf(rand.nextInt(charBound) + charShift));
+                    appendBoth(origLine, modLine, String.valueOf((char) (rand.nextInt(charBound) + charShift)));
             }
-            tuple.setFirst(origLine.toString());
-            tuple.setLast(replaced ? modLine.toString() : null);
-            fileContent.add(tuple);
+            content.add(new TupleImpl<>(origLine.toString(), replaced ? modLine.toString() : null));
             origLine = new StringBuilder(lineLength);
             modLine = new StringBuilder(lineLength);
             replaced = false;
         }
         
-        return fileContent;
+        return content;
     }
 
     private static void appendBoth(StringBuilder origLine,
                                    StringBuilder modLine, 
                                    String s) {
+        if (s.equals("\\") || s.endsWith("|")) return;
         origLine.append(s);
         modLine.append(s);
     }

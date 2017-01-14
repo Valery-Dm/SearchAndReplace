@@ -1,6 +1,3 @@
-/**
- * 
- */
 package dmv.desktop.searchandreplace.service;
 
 import java.nio.charset.Charset;
@@ -43,29 +40,29 @@ public interface SearchAndReplace<W, H, R> {
          * was given in a profile, so to fix reading errors.
          * Next state will be {@link #AFTER_FOUND}
          */
-        BEFORE_FIND, 
+        BEFORE_FIND(0), 
         /**
          * Intermittent state means that 'What to find' has changed
          * and cached content needs to be rescanned.
          * Next state will be {@link #AFTER_FOUND}
          */
-        FIND_OTHER,
+        FIND_OTHER(10),
         /**
          * Another intermittent state means that set of {@link Exclusions}
          * was replaced and all found markers needs to be rescanned.
          * Next state will be {@link #AFTER_FOUND}
          */
-        EXCLUDE_OTHER,
+        EXCLUDE_OTHER(20),
         /**
          * File has been read and cached, and markers of 'What to find' set
          * and marked as excluded according to current profile, nothing is replaced yet.
          */
-        AFTER_FOUND,
+        AFTER_FOUND(30),
         /**
          * Usually triggered by {@link SearchAndReplace#preview() preview}
          * method. Means that all computations were done and Result is ready
          */
-        COMPUTED, 
+        COMPUTED(40), 
         /**
          * Result is written to a file. All operations completed successfully.
          * <p>
@@ -73,12 +70,30 @@ public interface SearchAndReplace<W, H, R> {
          * this State, the next call to {@link SearchAndReplace#replace() replace}
          * method will write cached content to a file with that new encoding.
          */
-        REPLACED, 
+        REPLACED(50), 
         /**
          * Any of operations above was interrupted. The cause of interruption
          * will be stored inside Result object and returned with it.
          */
-        INTERRUPTED
+        INTERRUPTED(60);
+        
+        private int advance;
+
+        /**
+         * Create advanced state
+         * @param advance How advanced the state is
+         */
+        private State(int advance) {
+            this.advance = advance;
+        }
+
+        /**
+         * How advanced the state is
+         * @return advance number
+         */
+        public int getAdvance() {
+            return advance;
+        }
     }
     
     /**

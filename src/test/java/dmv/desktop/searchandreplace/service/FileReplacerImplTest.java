@@ -15,6 +15,11 @@ public class FileReplacerImplTest extends FileReplacerTest {
     protected FileReplacer createTarget(Path file, SearchProfile profile) {
         return new FileReplacerImpl(file, profile);
     }
+    
+    @Override
+    protected boolean isContentCached() {
+        return true;
+    }
 
     @Test(expected=NullPointerException.class)
     public void constructorNullFile() {

@@ -4,16 +4,18 @@
 package dmv.desktop.searchandreplace.service;
 
 import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.*;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import dmv.desktop.searchandreplace.collection.Tuple;
+import dmv.desktop.searchandreplace.collection.TupleImpl;
 import dmv.desktop.searchandreplace.model.*;
 import dmv.desktop.searchandreplace.service.SearchAndReplace.State;
 
@@ -99,10 +101,13 @@ public class FileReplacerImpl implements FileReplacer {
 
     /* 
      * Result will be created during Write operation
+     * if it was not created before. 
+     * In case of any writing problems exceptional result
+     * will be cached and returned
      */
     @Override
     public SearchResult writeResult() {
-        findReplacements();
+        getResult();
         return writeFile();
     }
 
@@ -110,13 +115,11 @@ public class FileReplacerImpl implements FileReplacer {
      * Read file if state is BEFORE_FIND or rescan cached content
      * if state is FIND_OTHER, and find Replace markers along
      * the way, in case of IOException create exceptional result.
-     * So, state after this method either AFTER_FOUND or INTERRUPTED
+     * So, state after this method - either AFTER_FOUND or INTERRUPTED
      */
     private void findReplacements() {
         checkInitialRequirements();
-        // A bit fragile as it depends on State fields ordering
-        if (state.ordinal() < EXCLUDE_OTHER.ordinal()) {
-            checkStateOrdering();
+        if (state.getAdvance() < EXCLUDE_OTHER.getAdvance()) {
             readContent();
         } else if (state.equals(EXCLUDE_OTHER)) {
             checkMarkers();
@@ -151,35 +154,37 @@ public class FileReplacerImpl implements FileReplacer {
         if (result != null) return result;
         modifications = 0;
         /* modifications will be computed in methods below */
-        Tuple<Path, Path> modifiedName = new Tuple<>(file, rename());
+        Tuple<Path, Path> modifiedName = new TupleImpl<>(file, rename(profile));
         List<Tuple<String, String>> modifiedContent = getModifiedContent();
-        result = new SearchResultImpl(modifications, 
-                                      modifiedName, 
-                                      modifiedContent, 
-                                      false, null);
+        result = SearchResultImpl.getBuilder()
+                                 .setNumberOfModificationsMade(modifications)
+                                 .setModifiedName(modifiedName)
+                                 .setModifiedContent(modifiedContent)
+                                 .build();
         state = COMPUTED;
         return result;
     }
     
     private List<Tuple<String, String>> getModifiedContent() {
-        List<Tuple<String, String>> modifiedContent = new ArrayList<>();
+        List<Tuple<String, String>> modifiedContent = addOriginalLines();
+        checkContentType(modifiedContent);
         if (contentMarkers.size() > 0) {
             /* this empty set will be skipped as not modified */
             int idx = -1;
-            String line = "";
             StringBuilder newLine = null;
             boolean modified = false;
             /* each marker except first one may be shifted */
             int shiftCount = 0, start, end;
             for (ReplaceMarker marker : contentMarkers) {
                 if (idx < marker.getLineNumber()) {
+                    /* add modified line */
+                    if (modified) 
+                        modifiedContent.get(idx)
+                                       .setLast(newLine.toString());
                     idx = marker.getLineNumber();
-                    if (modified)
-                        modifiedContent.add(new Tuple<>(line, newLine.toString()));
                     modified = false;
                     shiftCount = 0;
-                    line = content.get(idx);
-                    newLine = new StringBuilder(line);
+                    newLine = new StringBuilder(content.get(idx));
                 }
                 if (!marker.isExcluded()) {
                     start = marker.getStartIndex() + shift * shiftCount++;
@@ -189,17 +194,25 @@ public class FileReplacerImpl implements FileReplacer {
                     ++modifications;
                 }
             }
-            if (modified)
-                modifiedContent.add(new Tuple<>(line, newLine.toString()));
+            /* last modified line */
+            if (modified) 
+                modifiedContent.get(idx)
+                               .setLast(newLine.toString());
         }
         return modifiedContent;
     }
 
-    private Path rename() {
-        String newPath = null;
+    private List<Tuple<String, String>> addOriginalLines() {
+        return content.stream()
+                      .map(line -> new TupleImpl<String, String>(line, null))
+                      .collect(Collectors.toList());
+    }
+
+    private Path rename(SearchProfile profile) {
         int trackModifications = modifications;
+        StringBuilder newName = null;
         if (profile.isFileName() && filenameMarkers.size() > 0) {
-            StringBuilder newName = new StringBuilder(fileName);
+            newName = new StringBuilder(fileName);
             int shiftCount = 0, start, end;
             for (ReplaceMarker marker : filenameMarkers) {
                 if (!marker.isExcluded()) {
@@ -209,29 +222,26 @@ public class FileReplacerImpl implements FileReplacer {
                     ++modifications;
                 }
             }
-            if (trackModifications < modifications)
-                newPath = file.getParent() + "/" + newName;
         }
-        return newPath != null ? Paths.get(newPath) : null;
+        return trackModifications < modifications ? 
+                   Paths.get(file.getParent() + "/" + newName) : null;
     }
 
     private SearchResult writeFile() {
         if (state.equals(INTERRUPTED)) return result;
-        try {
-            //createResult();
-            // or create result anew as lines are writing
-            // in order to catch partial result in case
-            // of interruption
-
+        checkComputedState();
+        
+        try (BufferedWriter writer = 
+                Files.newBufferedWriter(file, profile.getCharset(), TRUNCATE_EXISTING)) {
             // write file and save result object
             // with what has been replaced or if
             // interrupted by IOException save exceptional
-            System.out.println(file.getFileName() + " is writing");
+            
             // rename file if required
             if (result.getModifiedName().getLast() != null) {
 
                 // replace path since it was changed
-                file = result.getModifiedName().getLast();
+                //file = result.getModifiedName().getLast();
             }
             // change state to final
             state = REPLACED;
@@ -268,34 +278,35 @@ public class FileReplacerImpl implements FileReplacer {
         /* track changes */
         int markedBefore = markers.size();
         /* 
-         * start - index where toFind word starts 
-         * end - content line pointer 
-         * finder - toFind word pointer
+         * start  - index mark where toFind word starts 
+         * end    - content line cursor
+         * finder - toFind word cursor
          */
         int start = 0, finder = 0, end = 0;
-        String toFind = profile.getToFind();
-        char find = toFind.charAt(finder);
         /* if we are scanning inside toFind word */
         boolean started = false;
+        String toFind = profile.getToFind();
+        char findChar = toFind.charAt(finder), lineChar;
         for (; end < line.length(); end++) {
-            if (line.charAt(end) == find && ++finder < toFind.length()) {
+            lineChar = line.charAt(end);
+            // reset finder on miss
+            if (started && lineChar != findChar) {
+                started = false;
+                finder = 0;
+                findChar = toFind.charAt(finder);
+            }
+            if (lineChar == findChar) {
                 if (!started) {
                     start = end;
                     started = true;
                 }
-                find = toFind.charAt(finder);
-            } else {
-                if (started) {
-                    if (finder == toFind.length()) 
-                        markers.add(createMarker(idx, start, end + 1, line));
+                // reset finder on hit, add marker    
+                if (++finder == toFind.length()) {
+                    markers.add(createMarker(idx, start, end + 1, line));
                     started = false;
                     finder = 0;
-                    find = toFind.charAt(finder);
-                } else if (line.charAt(end) == find && toFind.length() == 1) {
-                    // Special case: toFind is one character long
-                    finder = 0;
-                    markers.add(createMarker(idx, end, end + 1, line));
                 }
+                findChar = toFind.charAt(finder);
             }
         }
         return markedBefore != markers.size();
@@ -326,29 +337,28 @@ public class FileReplacerImpl implements FileReplacer {
     /* Integrity check */
     
     private void checkInitialRequirements() {
-//        if (file == null || profile == null)
-//            throw new IllegalStateException("File or profile was not given");
         assert(file != null && profile != null) : "Initial requirements not enforced";
     }
 
-    private void checkStateOrdering() {
-        assert(BEFORE_FIND.ordinal() < FIND_OTHER.ordinal() && 
-               FIND_OTHER.ordinal() < EXCLUDE_OTHER.ordinal() &&
-               EXCLUDE_OTHER.ordinal() < AFTER_FOUND.ordinal() &&
-               AFTER_FOUND.ordinal() < COMPUTED.ordinal() &&
-               COMPUTED.ordinal() < REPLACED.ordinal() &&
-               REPLACED.ordinal() < INTERRUPTED.ordinal()) : 
-              "restore State fields ordering: BEFORE_FIND, FIND_OTHER, " +
-              "EXCLUDE_OTHER, AFTER_FOUND, COMPUTED, REPLACED, INTERRUPTED";
+    private void checkComputedState() {
+        assert(state.equals(COMPUTED)) : "Illegal state, must be COMPUTED at this point";
+    }
+
+    private void checkContentType(List<?> list) {
+        assert(list instanceof RandomAccess) : "List should be of RAM Type";
     }
 
     private void checkFileName(SearchProfile profile) {
         if (result != null && !result.isExceptional()) {
             Tuple<Path, Path> modifiedName = result.getModifiedName();
-            if (profile.isFileName() && modifiedName.getLast() == null)
-                modifiedName.setLast(rename());
-            else if (!profile.isFileName())
-                modifiedName.setLast(null);
+            // cancel previous modification count
+            if (modifiedName.getLast() != null) modifications--;
+            Tuple<Path, Path> newModifiedName = new TupleImpl<>(modifiedName.getFirst(), rename(profile));
+            result = SearchResultImpl.getBuilder()
+                                     .setResult(result)
+                                     .setNumberOfModificationsMade(modifications)
+                                     .setModifiedName(newModifiedName)
+                                     .build();
         }
     }
 
@@ -363,7 +373,7 @@ public class FileReplacerImpl implements FileReplacer {
                 resetToExcludeOther();
             else if (!this.profile.getReplaceWith().equals(profile.getReplaceWith()))
                 resetToAfterFound();
-            else
+            else if (this.profile.isFileName() != profile.isFileName())
                 checkFileName(profile);
         }
     }
@@ -371,7 +381,10 @@ public class FileReplacerImpl implements FileReplacer {
     /* 'State change' methods */
     
     private void interrupt(Exception e) {
-        result = new SearchResultImpl(modifications, null, null, true, e);
+        result = SearchResultImpl.getBuilder()
+                                 .setExceptional(true)
+                                 .setCause(e)
+                                 .build();
         replacements = true;
         state = INTERRUPTED;
     }
@@ -383,24 +396,21 @@ public class FileReplacerImpl implements FileReplacer {
     }
 
     private void resetToFindOther() {
-        if (state.ordinal() > FIND_OTHER.ordinal()) {
-            checkStateOrdering();
+        if (state.getAdvance() > FIND_OTHER.getAdvance()) {
             state = FIND_OTHER;
             resetReplacements();
         }
     }
 
     private void resetToExcludeOther() {
-        if (state.ordinal() > EXCLUDE_OTHER.ordinal()) {
-            checkStateOrdering();
+        if (state.getAdvance() > EXCLUDE_OTHER.getAdvance()) {
             state = EXCLUDE_OTHER;
             removeResult();
         }
     }
 
     private void resetToAfterFound() {
-        if (state.ordinal() > AFTER_FOUND.ordinal()) {
-            checkStateOrdering();
+        if (state.getAdvance() > AFTER_FOUND.getAdvance()) {
             state = AFTER_FOUND;
             removeResult();
         }

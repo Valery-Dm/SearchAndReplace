@@ -4,8 +4,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 import dmv.desktop.searchandreplace.collection.Tuple;
-import dmv.desktop.searchandreplace.exceptions.ResourceCantBeModifiedException;
-import dmv.desktop.searchandreplace.exceptions.ResourceNotExistsException;
 
 /**
  * Class <tt>SearchResult.java</tt> is one of variants
@@ -20,11 +18,25 @@ import dmv.desktop.searchandreplace.exceptions.ResourceNotExistsException;
 public interface SearchResult {
 
     /**
+     * This exception could be thrown at construction time.
+     * It checks result for consistency (not a deep check, though):
+     * <p>
+     * Provide either Exceptional result only, where Cause exists,
+     * number of modifications is 0, and all content is null, or 
+     * Non-exceptional result with modified content provided and no Exceptions included
+     */
+    static final IllegalArgumentException NOT_CONSISTENT = new IllegalArgumentException(
+                                             "Provide either Exceptional result only, where Cause exists, " +
+                                             "number of modifications is 0, and all content is null, or " +
+                                             "Non-exceptional result with modified content provided and no Exceptions included");
+    
+    /**
      * Get name of a file, possibly modified.
      * First String is the original name.
      * Second is the modified version or,
      * if second is null, there were no modifications made
-     * @return Tuple with original and modified file name,
+     * for a file name.
+     * @return TupleImpl with original and modified file name,
      *         second parameter may be null if no modifications
      *         were made within the file name
      */
@@ -32,9 +44,9 @@ public interface SearchResult {
     
     /**
      * List of file lines before and after modifications.
-     * List entries should not be null. The whole list
-     * may be null if processing was interrupted exceptionally.
-     * Only changed lines should be listed.
+     * If second entry is null, there were no modifications made
+     * for this content line. The whole list may be null if processing 
+     * was interrupted exceptionally.
      * @return List of file lines before and after modifications.
      */
     List<Tuple<String, String>> getModifiedContent();
@@ -57,12 +69,6 @@ public interface SearchResult {
     /**
      * Returns the cause of interruption or null if
      * processing was successful.
-     * Usual exception types are {@link ResourceNotExistsException}
-     * if specified file does not exist anymore (i.e. somehow it was
-     * found during search but it may be deleted by now)
-     * and {@link ResourceCantBeModifiedException} if file is not
-     * readable or writable (this exception can be thrown during first
-     * 'search' step for either not readable or not writable case)
      * @return Cause of interruption
      */
     Throwable getCause();
