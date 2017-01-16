@@ -26,16 +26,16 @@ import dmv.desktop.searchandreplace.model.*;
  * then search for what needed to be replaced, then return found results
  * for preview or actually replace files content and also rename files if needed.
  * Everything in found files will be cached in memory, then 'to find' spots replaced,
- * then modified content will be written back into files. State became 'REPLACED'.
+ * then modified content will be written back into files. State will become 'REPLACED'.
  * Any parameter may be overridden at any stage, some changes may lead to change in 
- * object's state (to 'BEFORE_FOUND') which means that files on disk will be scanned again.
+ * object's state which may lead to re-computation or re-reading file's content.
  * 
  * @author dmv
  * @since 2017 January 02
  */
 public class FolderWalker
         implements SearchAndReplace<SearchPath, SearchProfile, SearchResult> {
-    
+    /* Explicitly set the default pool of CompletableFuture */
     private static final ForkJoinPool COMMON_POOL = ForkJoinPool.commonPool();
     
     private SearchPath folder;
@@ -48,6 +48,7 @@ public class FolderWalker
      * They could be changed later.
      * @param folder 'where to search' parameter
      * @param profile 'what to find' parameter
+     * @throws NullPointerException if either of arguments is null
      */
     public FolderWalker(SearchPath folder, SearchProfile profile) {
         setRootElement(folder);
@@ -78,67 +79,92 @@ public class FolderWalker
     }
 
     @Override
-    public Stream<SearchResult> preview(Executor exec) {
-        Objects.requireNonNull(exec);
-        if (folder == null || profile == null)
-            throw new IllegalStateException("Either folder or profile was not specified");
-        try {
-            List<CompletableFuture<SearchResult>> collect = 
-                    getFoundFiles(exec)
-                         .map(future -> future.thenApplyAsync(this::produceResult, exec))
-                         .collect(Collectors.<CompletableFuture<SearchResult>>toList());
-            state = AFTER_FOUND;
-            return collect.stream()
-                          .map(this::getResult);
-        } catch (IOException e) {
-            state = INTERRUPTED;
-            e.printStackTrace();
-            // TODO find a way to notify app's user without crashing
-        }
-        // must be removed
-        return null;
-    }
-
-    @Override
     public Stream<SearchResult> preview() {
-        /* Explicitly set the default pool of CompletableFuture */
         return preview(COMMON_POOL);
     }
 
     @Override
+    public Stream<SearchResult> preview(Executor exec) {
+        Objects.requireNonNull(exec);
+        checkInitialRequirements();
+        return walk(exec, false);
+    }
+
+    @Override
     public Stream<SearchResult> replace() {
-        // TODO create replace method
-        return null;
+        return replace(COMMON_POOL);
     }
 
     @Override
     public Stream<SearchResult> replace(Executor exec) {
-        // TODO create replace method
-        return null;
+        Objects.requireNonNull(exec);
+        checkInitialRequirements();
+        return walk(exec, true);
     }
 
-    private SearchResult getResult(CompletableFuture<SearchResult> future) {
+    private Stream<SearchResult> walk(Executor exec, boolean replace) {
+        checkState();
+        try {
+            List<CompletableFuture<SearchResult>> futures = 
+                    getFoundFiles(exec)
+                         .map(future -> 
+                                  future.thenApplyAsync(
+                                      replacer -> 
+                                          produceResult(replacer, replace), exec))
+                         .collect(Collectors.<CompletableFuture<SearchResult>>toList());
+            state = AFTER_FOUND;
+            return futures.stream()
+                          .map(this::complete)
+//                          .map(res -> {
+//                              System.out.println(res.getModifiedName().getFirst());
+//                              return res;
+//                          })
+                          .filter(result -> result.numberOfModificationsMade() > 0); 
+        } catch (IOException e) {
+            return Stream.of(interrupt(e));
+        } finally {
+            COMMON_POOL.shutdown();
+        }
+    }
+
+    private Stream<CompletableFuture<FileReplacer>> 
+                           getFoundFiles(Executor exec) throws IOException {
+        if (state.equals(BEFORE_FIND)) {
+            foundFiles = new ConcurrentLinkedQueue<>();
+            return Files.walk(folder.getPath(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
+                        .filter(this::isPathValid)
+                        .map(this::createReplacer)
+                        .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec))
+                        .map(future -> future.thenApplyAsync(this::readFileContent, exec));
+        }
+        return foundFiles.stream()
+                         .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec));
+    }
+
+    private SearchResult complete(CompletableFuture<SearchResult> future) {
         try {
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
-            return new SearchResultImpl(0, null, null, true, e);
+            return interrupt(e);
         }
+    }
+
+    private SearchResult interrupt(Throwable cause) {
+        state = INTERRUPTED;
+        return SearchResultImpl.getBuilder()
+                               .setExceptional(true)
+                               .setCause(cause)
+                               .build();
     }
     
     private FileReplacer readFileContent(FileReplacer replacer) {
-        //replacer.readFile();
         if (replacer.hasReplacements()) 
             foundFiles.add(replacer);
         return replacer;
     }
     
-    private SearchResult produceResult(FileReplacer replacer) {
-        return replacer.getResult();
-    }
-    
-    private FileReplacer produceExceptional(Throwable cause) {
-        // Or cancel whole operation?
-        return null;
+    private SearchResult produceResult(FileReplacer replacer, boolean replace) {
+        return replace ? replacer.writeResult() : replacer.getResult();
     }
     
     private boolean isPathValid(Path file) {
@@ -146,19 +172,21 @@ public class FolderWalker
                 folder.getNamePattern().matches(file.getFileName());
     }
     
-    private Stream<CompletableFuture<FileReplacer>> getFoundFiles(Executor exec) throws IOException {
-        if (state.equals(AFTER_FOUND)) {
-            return foundFiles.stream()
-                             .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec));
-        }
-        foundFiles = new ConcurrentLinkedQueue<>();
-        return Files
-                .walk(folder.getPath(), folder.isSubfolders() ? Integer.MAX_VALUE : 1)
-                .filter(this::isPathValid)
-                .map(file -> new FileReplacerImpl(file, profile))
-                .map(replacer -> CompletableFuture.supplyAsync(() -> replacer, exec))
-                .map(future -> future.thenApplyAsync(this::readFileContent, exec))
-                .map(future -> future.exceptionally(this::produceExceptional));
+    private FileReplacer createReplacer(Path file) {
+        return new FileReplacerImpl(file, profile);
+    }
+    
+    private void checkState() {
+        if (state.equals(INTERRUPTED))
+            throw new IllegalStateException(
+                    "current state is INTERRUPTED, change either folder or profile first");
+    }
+
+    private void checkInitialRequirements() {
+//        if (folder == null || profile == null)
+//            throw new IllegalStateException(
+//                    "Either folder or profile was not specified");
+        assert(folder != null || profile != null) : "initial requirements are not enforced";
     }
     
 }

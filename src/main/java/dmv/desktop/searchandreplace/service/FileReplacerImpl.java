@@ -8,9 +8,7 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -99,12 +97,6 @@ public class FileReplacerImpl implements FileReplacer {
         return createResult();
     }
 
-    /* 
-     * Result will be created during Write operation
-     * if it was not created before. 
-     * In case of any writing problems exceptional result
-     * will be cached and returned
-     */
     @Override
     public SearchResult writeResult() {
         getResult();
@@ -126,16 +118,6 @@ public class FileReplacerImpl implements FileReplacer {
         }
     }
 
-    private void checkMarkers() {
-        filenameMarkers.forEach(marker -> {
-            checkMarker(marker, fileName);
-        });
-        contentMarkers.forEach(marker -> {
-            checkMarker(marker, content.get(marker.getLineNumber()));
-        });
-        state = AFTER_FOUND;
-    }
-
     private void readContent() {
         try {
             parseName();
@@ -150,21 +132,98 @@ public class FileReplacerImpl implements FileReplacer {
         }
     }
 
+    private void rescanContent() {
+        int idx = 0;
+        for (String line : content) 
+            if (containsReplacement(contentMarkers, line, idx++))
+                replacements = true;
+    }
+
+    private void parseName() {
+        /* filename index */
+        int idx = -1;
+        if (containsReplacement(filenameMarkers, fileName, idx))
+            replacements = true;
+    }
+
+    private void parseContentLine(String line) {
+        // copy line and find markers
+        content.add(line);
+        int idx = content.size() - 1;
+        if (containsReplacement(contentMarkers, line, idx))
+            replacements = true;
+    }
+
+    private boolean containsReplacement(List<ReplaceMarker> markers, String line, int idx) {
+        /* track changes */
+        int markedBefore = markers.size();
+        /* 
+         * start  - index mark where toFind word starts 
+         * end    - content line cursor
+         * finder - toFind word cursor
+         */
+        int start = 0, finder = 0, end = 0;
+        /* if we are scanning inside toFind word */
+        boolean started = false;
+        String toFind = profile.getToFind();
+        char findChar = toFind.charAt(finder), lineChar;
+        for (; end < line.length(); end++) {
+            lineChar = line.charAt(end);
+            // reset finder on miss
+            if (started && lineChar != findChar) {
+                started = false;
+                finder = 0;
+                findChar = toFind.charAt(finder);
+            }
+            if (lineChar == findChar) {
+                if (!started) {
+                    start = end;
+                    started = true;
+                }
+                // reset finder on hit, add marker    
+                if (++finder == toFind.length()) {
+                    markers.add(createMarker(idx, start, end + 1, line));
+                    started = false;
+                    finder = 0;
+                }
+                findChar = toFind.charAt(finder);
+            }
+        }
+        return markedBefore != markers.size();
+    }
+
     private SearchResult createResult() {
-        if (result != null) return result;
+        if (state.getAdvance() > COMPUTED.getAdvance())
+            return result;
         modifications = 0;
         /* modifications will be computed in methods below */
         Tuple<Path, Path> modifiedName = new TupleImpl<>(file, rename(profile));
         List<Tuple<String, String>> modifiedContent = getModifiedContent();
-        result = SearchResultImpl.getBuilder()
-                                 .setNumberOfModificationsMade(modifications)
-                                 .setModifiedName(modifiedName)
-                                 .setModifiedContent(modifiedContent)
-                                 .build();
+        updateResultWith(modifiedName, modifiedContent);
         state = COMPUTED;
         return result;
     }
-    
+
+    private Path rename(SearchProfile profile) {
+        int trackModifications = modifications;
+        StringBuilder newName = null;
+        if (profile.isFileName() && filenameMarkers.size() > 0) {
+            newName = new StringBuilder(fileName);
+            int shiftCount = 0, start, end;
+            for (ReplaceMarker marker : filenameMarkers) {
+                if (!marker.isExcluded()) {
+                    start = marker.getStartIndex() + shift * shiftCount++;
+                    end = start + toFindLength;
+                    newName.replace(start, end, replaceWith);
+                    ++modifications;
+                }
+            }
+            
+        }
+        return trackModifications < modifications ? 
+                    Paths.get(file.getParent() + "/" + newName) : null;
+    }
+
     private List<Tuple<String, String>> getModifiedContent() {
         List<Tuple<String, String>> modifiedContent = addOriginalLines();
         checkContentType(modifiedContent);
@@ -208,120 +267,75 @@ public class FileReplacerImpl implements FileReplacer {
                       .collect(Collectors.toList());
     }
 
-    private Path rename(SearchProfile profile) {
-        int trackModifications = modifications;
-        StringBuilder newName = null;
-        if (profile.isFileName() && filenameMarkers.size() > 0) {
-            newName = new StringBuilder(fileName);
-            int shiftCount = 0, start, end;
-            for (ReplaceMarker marker : filenameMarkers) {
-                if (!marker.isExcluded()) {
-                    start = marker.getStartIndex() + shift * shiftCount++;
-                    end = start + toFindLength;
-                    newName.replace(start, end, replaceWith);
-                    ++modifications;
-                }
-            }
-        }
-        return trackModifications < modifications ? 
-                   Paths.get(file.getParent() + "/" + newName) : null;
-    }
-
     private SearchResult writeFile() {
-        if (state.equals(INTERRUPTED)) return result;
+        if (state.getAdvance() > COMPUTED.getAdvance()) 
+            return result;
         checkComputedState();
         
         try (BufferedWriter writer = 
                 Files.newBufferedWriter(file, profile.getCharset(), TRUNCATE_EXISTING)) {
-            // write file and save result object
-            // with what has been replaced or if
-            // interrupted by IOException save exceptional
-            
-            // rename file if required
-            if (result.getModifiedName().getLast() != null) {
-
-                // replace path since it was changed
-                //file = result.getModifiedName().getLast();
-            }
-            // change state to final
-            state = REPLACED;
+            result.getModifiedContent()
+                  .stream()
+                  .map(tuple -> tuple.getLast() != null ? tuple.getLast() : tuple.getFirst())
+                  .forEach(line -> {
+                        try {
+                            writer.write(line);
+                            writer.newLine();
+                        } catch (IOException e) {
+                            interrupt(e);
+                        }
+                    });
         } catch (Exception e) {
             interrupt(e);
         }
+        // as stream doesn't propagate exceptions outside, 
+        // check for it here, also after main catch block
+        if (result.isExceptional()) return result;
         
+        try {
+            Path newPath = result.getModifiedName().getLast();
+            if (newPath != null) {
+                file = Files.move(file, 
+                                  resolveCollisions(newPath),
+                                  StandardCopyOption.ATOMIC_MOVE);
+                fileName = file.getFileName().toString();
+            }
+        } catch (Exception e) {
+            interrupt(e);
+            return result;
+        }
+        
+        // change state to final
+        state = REPLACED;
         return result;
     }
-
-    private void parseName() {
-        /* filename index */
-        int idx = -1;
-        if (containsReplacement(filenameMarkers, fileName, idx))
-            replacements = true;
-    }
-
-    private void parseContentLine(String line) {
-        // copy line and find markers
-        content.add(line);
-        int idx = content.size() - 1;
-        if (containsReplacement(contentMarkers, line, idx))
-            replacements = true;
-    }
-
-    private void rescanContent() {
-        int idx = 0;
-        for (String line : content) 
-            if (containsReplacement(contentMarkers, line, idx++))
-                replacements = true;
-    }
-
-    private boolean containsReplacement(List<ReplaceMarker> markers, String line, int idx) {
-        /* track changes */
-        int markedBefore = markers.size();
-        /* 
-         * start  - index mark where toFind word starts 
-         * end    - content line cursor
-         * finder - toFind word cursor
-         */
-        int start = 0, finder = 0, end = 0;
-        /* if we are scanning inside toFind word */
-        boolean started = false;
-        String toFind = profile.getToFind();
-        char findChar = toFind.charAt(finder), lineChar;
-        for (; end < line.length(); end++) {
-            lineChar = line.charAt(end);
-            // reset finder on miss
-            if (started && lineChar != findChar) {
-                started = false;
-                finder = 0;
-                findChar = toFind.charAt(finder);
+    
+    private Path resolveCollisions(Path path) {
+        if (Files.exists(path)) {
+            Random rand = new Random();
+            String folder = path.getParent().toString() + "/";
+            String filename = path.getFileName().toString();
+            StringBuilder builder = new StringBuilder(filename); 
+            int beforeLastDot = builder.lastIndexOf(".");
+            beforeLastDot = beforeLastDot != -1 ? beforeLastDot :
+                                                  builder.length();
+            Path newPath = null;
+            do {
+                builder.insert(beforeLastDot, "_" + rand.nextInt(10));
+                newPath = Paths.get(folder + builder.toString());
             }
-            if (lineChar == findChar) {
-                if (!started) {
-                    start = end;
-                    started = true;
-                }
-                // reset finder on hit, add marker    
-                if (++finder == toFind.length()) {
-                    markers.add(createMarker(idx, start, end + 1, line));
-                    started = false;
-                    finder = 0;
-                }
-                findChar = toFind.charAt(finder);
-            }
+            while (Files.exists(newPath));
+            
+            updateResultWith(new TupleImpl<>(this.file, newPath));
+            return newPath;
         }
-        return markedBefore != markers.size();
+        return path;
     }
 
     private ReplaceMarker createMarker(int idx, int start, int end, String line) {
         return new ReplaceMarker(idx, start, isExcluded(profile.getExclusions(), start, end, line));
     }
     
-    private void checkMarker(ReplaceMarker marker, String line) {
-        int start = marker.getStartIndex();
-        int end = start + profile.getToFind().length();
-        marker.setExcluded(isExcluded(profile.getExclusions(), start, end, line));
-    }
-
     private boolean isExcluded(Exclusions exclusions, int s, int e, String line) {
         int start = s - exclusions.maxPrefixSize();
         start = start < 0 ? 0 : start;
@@ -348,24 +362,25 @@ public class FileReplacerImpl implements FileReplacer {
         assert(list instanceof RandomAccess) : "List should be of RAM Type";
     }
 
-    private void checkFileName(SearchProfile profile) {
-        if (result != null && !result.isExceptional()) {
-            Tuple<Path, Path> modifiedName = result.getModifiedName();
-            // cancel previous modification count
-            if (modifiedName.getLast() != null) modifications--;
-            Tuple<Path, Path> newModifiedName = new TupleImpl<>(modifiedName.getFirst(), rename(profile));
-            result = SearchResultImpl.getBuilder()
-                                     .setResult(result)
-                                     .setNumberOfModificationsMade(modifications)
-                                     .setModifiedName(newModifiedName)
-                                     .build();
-        }
+    private void checkMarkers() {
+        filenameMarkers.forEach(marker -> {
+            checkMarker(marker, fileName);
+        });
+        contentMarkers.forEach(marker -> {
+            checkMarker(marker, content.get(marker.getLineNumber()));
+        });
+        state = AFTER_FOUND;
+    }
+
+    private void checkMarker(ReplaceMarker marker, String line) {
+        int start = marker.getStartIndex();
+        int end = start + profile.getToFind().length();
+        marker.setExcluded(isExcluded(profile.getExclusions(), start, end, line));
     }
 
     private void checkProfile(SearchProfile profile) {
         if (this.profile != null) {
-            if (!this.profile.getCharset().equals(profile.getCharset()) &&
-                !state.equals(REPLACED)) 
+            if (!this.profile.getCharset().equals(profile.getCharset())) 
                 resetToBeforeFind();
             else if (!this.profile.getToFind().equals(profile.getToFind())) 
                 resetToFindOther();
@@ -373,13 +388,39 @@ public class FileReplacerImpl implements FileReplacer {
                 resetToExcludeOther();
             else if (!this.profile.getReplaceWith().equals(profile.getReplaceWith()))
                 resetToAfterFound();
-            else if (this.profile.isFileName() != profile.isFileName())
+            // always check for renaming
+            if (this.profile.isFileName() != profile.isFileName())
                 checkFileName(profile);
         }
     }
 
-    /* 'State change' methods */
+    private void checkFileName(SearchProfile profile) {
+        if (result != null && state.getAdvance() < REPLACED.getAdvance()) {
+            // cancel previous modification count
+            if (result.getModifiedName().getLast() != null) modifications--;
+            updateResultWith(new TupleImpl<>(file, rename(profile)));
+        }
+    }
+
+    private void updateResultWith(Tuple<Path, Path> newModifiedName) {
+        result = SearchResultImpl.getBuilder()
+                                 .setResult(result)
+                                 .setNumberOfModificationsMade(modifications)
+                                 .setModifiedName(newModifiedName)
+                                 .build();
+    }
     
+    private void updateResultWith(Tuple<Path, Path> modifiedName,
+                                  List<Tuple<String, String>> modifiedContent) {
+        result = SearchResultImpl.getBuilder()
+                                 .setNumberOfModificationsMade(modifications)
+                                 .setModifiedName(modifiedName)
+                                 .setModifiedContent(modifiedContent)
+                                 .build();
+    }
+
+    /* 'State change' methods */
+
     private void interrupt(Exception e) {
         result = SearchResultImpl.getBuilder()
                                  .setExceptional(true)

@@ -1,0 +1,2 @@
+some text without *that* word
+some text with FindMe word

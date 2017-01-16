@@ -65,16 +65,21 @@ public class TrieTestSingle extends TrieTest {
     
     @Test
     public void aBunchOfRandomWords() {
+        boolean print = false;
         if (randomWords.size() > 0) {
             Runtime runtime = Runtime.getRuntime();
             long memoryBefore = runtime.totalMemory() - runtime.freeMemory();
-            System.out.printf("Populating trie with %d words of length %d\n", 
-                    randomWords.size(), randomWords.iterator().next().length());
-            System.out.println("Memory before:    " + getMBs(memoryBefore) + "Mb");
+            if (print) {
+                System.out.printf("Populating trie with %d words of length %d\n", 
+                        randomWords.size(), randomWords.iterator().next().length());
+                System.out.println("Memory before:    " + getMBs(memoryBefore) + "Mb");
+            }
             randomWords.forEach(targetEmpty::add);
             long memoryAfter = runtime.totalMemory() - runtime.freeMemory();
-            System.out.println("Memory after:     " + getMBs(memoryAfter) + "Mb");
-            System.out.println("Memory increased: " + getMBs(memoryAfter - memoryBefore) + "Mb");
+            if (print) {
+                System.out.println("Memory after:     " + getMBs(memoryAfter) + "Mb");
+                System.out.println("Memory increased: " + getMBs(memoryAfter - memoryBefore) + "Mb");
+            }
             randomWords.forEach(targetEmpty::add);
             assertThat(targetEmpty.size(), is(randomWords.size()));
             randomWords.forEach(w -> assertTrue(targetEmpty.contains(w)));

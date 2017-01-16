@@ -51,7 +51,7 @@ public interface FileReplacer {
      * <p>
      * new {@link Charset} will set for a new file reading operation
      * (i.e. State will become {@link SearchAndReplace.State#BEFORE_FIND
-     * BEFORE_FIND} again), 
+     * BEFORE_FIND} again),
      * <p>
      * new 'What to find' expression will require cached content rescanning 
      * (State will be {@link SearchAndReplace.State#FIND_OTHER FIND_OTHER}
@@ -64,9 +64,12 @@ public interface FileReplacer {
      * replaceWith string will be used during results creation
      * operation so, it will change State to {@link 
      * SearchAndReplace.State#AFTER_FOUND AFTER_FOUND}
+     * if it was more advanced at the time,
      * <p>
-     * the 'file renaming' rule: {@link SearchAndReplace.State State}
-     * won't be changed
+     * the 'file renaming' rule won't change current state and it also
+     * will not be applied whether the state is {@link SearchAndReplace.State#REPLACED
+     * REPLACED} or {@link SearchAndReplace.State#INTERRUPTED INTERRUPTED}
+     * <p>
      * @param profile Description of what to find and replace
      * @throws NullPointerException if argument is null
      */
@@ -100,6 +103,10 @@ public interface FileReplacer {
      * Then, it will make replacements according to current profile
      * and return {@link SearchResult result} for a preview.
      * State is no less than {@link SearchAndReplace.State#COMPUTED}
+     * <p>
+     * When in {@link SearchAndReplace.State#REPLACED REPLACED} state
+     * this method won't do actual work, just return cached result
+     * of previous replacement
      * @return 'Would-be-replaced' content of a file
      * @throws IllegalStateException if either file or profile
      *                               was not set before
@@ -115,6 +122,19 @@ public interface FileReplacer {
      * Any caught exception will be returned as exceptional result and 
      * won't be propagated further.
      * State is no less than {@link SearchAndReplace.State#REPLACED}
+     * <p>
+     * This state is final. It is impractical to continue to work with
+     * current filename (it can be replaced), or profile (all replacements
+     * were already done). So, on the next call to this method
+     * it won't do any actual work, just return cached result
+     * of previous replacement. 
+     * <p>
+     * If some file already exists with the modified file name, the
+     * name will be changed by appending underscore and random number (_[0-9])
+     * to the end of the filename or, before the last dot '.' if any exist.
+     * <p>
+     * It doesn't change the result of this method if original file has 
+     * been removed or modified, that is because it writes from cache.
      * @return Actually replaced content of a file
      * @throws IllegalStateException if either file or profile
      *                               was not set before

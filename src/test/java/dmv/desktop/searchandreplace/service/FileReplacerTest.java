@@ -8,6 +8,7 @@ import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.FIND_O
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
@@ -18,6 +19,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.junit.*;
 import org.junit.rules.ExpectedException;
@@ -40,7 +42,11 @@ public abstract class FileReplacerTest {
     private static Path file1 = Paths.get("src/test/resources/replacertest/file1.txt");
     private static Path file2 = Paths.get("src/test/resources/replacertest/file2"+toFind+".txt");
     private static Path file2Renamed = Paths.get("src/test/resources/replacertest/file2.txt");
+    private static Path readOnly = Paths.get("src/test/resources/replacertest/readOnly.txt");
     private static Path nonReadable = Paths.get("src/test/resources/replacertest/nonReadable.txt");
+    private static Path notExisting = Paths.get("src/test/resources/replacertest/notExisting.txt");
+    /* new random filename in case of collisions (is not yet known) */
+    private static Path newName;
     /* This block of variables is not for changes */
     private static List<String> origContent1;
     private static List<Tuple<String, String>> modContent1;
@@ -48,10 +54,12 @@ public abstract class FileReplacerTest {
     private static List<Tuple<String, String>> modContent2;
     private static int modifications1;
     private static int modifications2;
+    
     /* Main changeable instances */
     private FileReplacer target1;
     private FileReplacer target2;
     private SearchProfile profile;
+    
 
     /* Get actual implementation */
     protected abstract FileReplacer createTarget(Path file, SearchProfile profile);
@@ -189,6 +197,7 @@ public abstract class FileReplacerTest {
         /* check renaming rule changes */
         
         target2.setProfile(profile.setFilename(true).setReplaceWith(""));
+        target2.getResult();
         
         //cancel renaming
         target2.setProfile(profile.setFilename(false));
@@ -261,6 +270,10 @@ public abstract class FileReplacerTest {
         assertFalse(target1.hasReplacements());
         target2.setProfile(profile);
         assertFalse(target2.hasReplacements());
+        
+        /* after exception */
+        target1.setFile(nonReadable);
+        assertTrue(target1.hasReplacements());
     }
     
     @Test
@@ -272,23 +285,100 @@ public abstract class FileReplacerTest {
         
         checkResultExpect(target2.getResult(), modContent2, file2Renamed, modifications2, false, null);
         
+        // should be readable
+        target1.setFile(readOnly);
+        
         /* exceptional results */
-
-//        target1.setProfile(profile.setCharset(StandardCharsets.UTF_16LE));
-//        checkResultExpect(target1.getResult(), null, null, 0, true, MalformedInputException.class);
+        
+        target1.setFile(notExisting);
+        checkResultExpect(target1.getResult(), null, null, 0, true, NoSuchFileException.class);
         
         target1.setFile(nonReadable);
         checkResultExpect(target1.getResult(), null, null, 0, true, AccessDeniedException.class);
     }
     
+    @Test
+    public void writeResult() throws Throwable {
+        
+        /* default results */
+        
+        // three calls in a row should yield the same result
+        checkResultExpect(target1.writeResult(), modContent1, null, modifications1, false, null);
+        checkResultExpect(target1.writeResult(), modContent1, null, modifications1, false, null);
+        checkResultExpect(target1.writeResult(), modContent1, null, modifications1, false, null);
+        readAndCheckContent(file1, target1, true);
+        
+        // change replaceWith
+        target1.setProfile(profile.setReplaceWith(""));
+        checkResultExpect(target1.writeResult(), modContent2, null, modifications1, false, null);
+
+        // first try without renaming
+        target2.setProfile(profile.setFilename(false));
+        checkResultExpect(target2.writeResult(), modContent2, null, modifications2 - 1, false, null);
+        checkResultExpect(target2.writeResult(), modContent2, null, modifications2 - 1, false, null);
+        readAndCheckContent(file2, target2, true);
+        
+        // now with rename:
+        
+        // recreate original file
+        Files.deleteIfExists(file2);
+        Files.write(file2, origContent2);
+        
+        // reset state and file renaming rule
+        target2.setProfile(profile.setReplaceWith("1").setFilename(true));
+        // reset replaceWith back to check results 
+        target2.setProfile(profile.setReplaceWith(""));
+        checkResultExpect(target2.writeResult(), modContent2, file2Renamed, modifications2, false, null);
+        readAndCheckContent(file2Renamed, target2, true);
+
+        // recreate original file
+        Files.deleteIfExists(file2);
+        Files.write(file2, origContent2);
+        
+        // create file with expected modified name (to check collisions)
+        Files.write(file2Renamed, origContent2);
+        
+        // renaming rule won't change previous result
+        target2.setProfile(profile.setFilename(true));
+        checkResultExpect(target2.writeResult(), modContent2, file2Renamed, modifications2, false, null);
+        
+        // reset status (we have original file recreated)
+        target2.setFile(file2);
+        SearchResult result = target2.writeResult();
+        // I don't know what new random name will be created in this case
+        newName = result.getModifiedName().getLast();
+        checkResultExpect(result, modContent2, newName, modifications2, false, null);
+        readAndCheckContent(newName, target2, true);
+        // try to change profile 
+        target2.setProfile(profile.setToFind("a"));
+        target2.writeResult();
+        
+        /* exceptional results */
+        
+        target1.setProfile(profile.setCharset(StandardCharsets.UTF_16BE));
+        Files.setAttribute(file1, "dos:readonly", true);
+        checkResultExpect(target1.writeResult(), null, null, 0, true, AccessDeniedException.class);
+        Files.setAttribute(file1, "dos:readonly", false);
+        // without exception now
+        target1.setProfile(profile.setCharset(charset));
+        target1.writeResult();
+        
+        target1.setFile(notExisting);
+        checkResultExpect(target1.writeResult(), null, null, 0, true, NoSuchFileException.class);
+        
+        target1.setFile(readOnly);
+        checkResultExpect(target1.writeResult(), null, null, 0, true, AccessDeniedException.class);
+        
+        target1.setFile(nonReadable);
+        checkResultExpect(target1.writeResult(), null, null, 0, true, AccessDeniedException.class);
+    }
+
     /* correctness tests */
-    
+
     @Test
     public void correctFullWords() throws IOException {
-        /*
-         * replaceWith = Replaced
-         * toFind = FindMe
-         */
+        toFind = "FindMe";
+        replaceWith = "Replaced";
         prepareProfile(target1, toFind, replaceWith);
         
         Tuple<String, String> tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
@@ -298,20 +388,16 @@ public abstract class FileReplacerTest {
         
         /* Rescan cached content */
         if (isContentCached()) {
-            /*
-             * replaceWith = ""
-             * toFind = FindMe
-             */
-            prepareProfile(target1, toFind, "");
+            toFind = "FindMe";
+            replaceWith = "";
+            prepareProfile(target1, toFind, replaceWith);
             tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
                                     "ljdlfklkFFk;kpoklkl");
             assertThat(target1.getResult().getModifiedContent(), is(Arrays.asList(tuple)));
             
-            /*
-             * replaceWith = Replaced
-             * toFind = F
-             */
-            prepareProfile(target1, "F", replaceWith);
+            toFind = "F";
+            replaceWith = "Replaced";
+            prepareProfile(target1, toFind, replaceWith);
             tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
                                     "ReplacedindMeljdlfReplacedindMeklkReplacedReplaced" +
                                     "ReplacedindMek;kpoReplacedindMeklklReplacedindMe");
@@ -321,10 +407,8 @@ public abstract class FileReplacerTest {
 
     @Test
     public void correctFullWordsWithRepeatitions() throws IOException {
-        /*
-         * replaceWith = Replaced
-         * toFind = FindMe
-         */
+        toFind = "FindMe";
+        replaceWith = "Replaced";
         prepareProfile(target1, toFind, replaceWith);
 
         Tuple<String, String> tuple = new TupleImpl<>("FFindMeljdlfFindMeFindMeklkFFFndMek;kpoFindMeFeeklklFindMee", 
@@ -335,11 +419,9 @@ public abstract class FileReplacerTest {
     
     @Test
     public void correctEmptyReplace() throws IOException {
-        /*
-         * replaceWith = ""
-         * toFind = FindMe
-         */
-        prepareProfile(target1, toFind, "");
+        toFind = "FindMe";
+        replaceWith = "";
+        prepareProfile(target1, toFind, replaceWith);
         Tuple<String, String> tuple = new TupleImpl<>("FindMeljdlfFindMeklkFFFindMek;kpoFindMeklklFindMe", 
                                                       "ljdlfklkFFk;kpoklkl");
         Files.write(file1, Arrays.asList(tuple.getFirst()), TRUNCATE_EXISTING);
@@ -348,11 +430,9 @@ public abstract class FileReplacerTest {
     
     @Test
     public void correctOneLetterToFind() throws IOException {
-        /*
-         * replaceWith = Replaced
-         * toFind = F
-         */
-        prepareProfile(target1, "F", replaceWith);
+        toFind = "F";
+        replaceWith = "Replaced";
+        prepareProfile(target1, toFind, replaceWith);
         Tuple<String, String> tuple = new TupleImpl<>("FFashjdFjklFFaFaF;lkFFF;l;oFF", 
                                                       "ReplacedReplacedashjdReplacedjklReplacedReplaceda" +
                                                       "ReplacedaReplaced;lkReplacedReplacedReplaced;l;oReplacedReplaced");
@@ -387,15 +467,17 @@ public abstract class FileReplacerTest {
     
     @After
     public void reset() throws IOException {
-//        Files.setAttribute(file1, "dos:readonly", false);
-//        Files.setAttribute(file1, "dos:hidden", false);
-//        Files.setAttribute(file1, "dos:system", false);
+        Files.setAttribute(file1, "dos:readonly", false);
+        Files.setAttribute(file1, "dos:hidden", false);
+        Files.setAttribute(file1, "dos:system", false);
     }
     
     @AfterClass
     public static void deleteFiles() throws IOException {
         Files.deleteIfExists(file1);
         Files.deleteIfExists(file2);
+        Files.deleteIfExists(file2Renamed);
+        Files.deleteIfExists(newName);
     }
 
     /* Helper methods */
@@ -423,17 +505,32 @@ public abstract class FileReplacerTest {
         target.setProfile(profile);
         return exclude;
     }
-
+    
+    private void readAndCheckContent(Path file, FileReplacer replacer, boolean equals) throws IOException {
+        List<String> resultLines = replacer.getResult()
+                        .getModifiedContent()
+                        .stream()
+                        .map(tuple -> tuple.getLast() != null ? tuple.getLast() : tuple.getFirst())
+                        .collect(Collectors.toList());
+        List<String> fileLines = Files.readAllLines(file, profile.getCharset());
+        if (equals)
+            assertThat(fileLines, is(resultLines));
+        else 
+            assertThat(fileLines, is(not(resultLines)));
+    }
+    
     private void checkResultExpect(SearchResult result, 
                                    List<Tuple<String, String>> modContent, 
                                    Path modName, 
                                    int modifications, 
                                    boolean exceptional, 
                                    Class<? extends Throwable> cause) throws Throwable {
-        if (exceptional) { 
+        if (result.isExceptional()) { 
+            assertTrue("unexpected exception " + result.getCause(), exceptional);
             assertThat(result.getModifiedName(), is(nullValue()));
             assertTrue(result.getCause().getClass() == cause);
         } else {
+            assertFalse("missing exception", exceptional);
             assertThat(result.getModifiedName().getLast(), is(modName));
             assertThat(result.getCause(), is(nullValue()));
         }
@@ -492,7 +589,6 @@ public abstract class FileReplacerTest {
     private static void appendBoth(StringBuilder origLine,
                                    StringBuilder modLine, 
                                    String s) {
-        if (s.equals("\\") || s.endsWith("|")) return;
         origLine.append(s);
         modLine.append(s);
     }
