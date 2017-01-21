@@ -23,7 +23,7 @@ public class FileReplacerImplTest extends FileReplacerTest {
 
     @Test(expected=NullPointerException.class)
     public void constructorNullFile() {
-        new FileReplacerImpl(null, new SearchProfileImpl("res"));
+        new FileReplacerImpl(null, SearchProfileImpl.getBuilder("res").build());
     }
 
     @Test(expected=NullPointerException.class)

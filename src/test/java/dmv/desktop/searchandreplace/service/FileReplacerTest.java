@@ -96,16 +96,14 @@ public abstract class FileReplacerTest {
         Files.write(file2, origContent2);
         
         /* create default targets */
-        profile = new SearchProfileImpl(toFind)
-                           .setReplaceWith(replaceWith)
-                           .setCharset(charset);
+        profile = SearchProfileImpl.getBuilder(toFind)
+                                  .setReplaceWith(replaceWith)
+                                  .setCharset(charset)
+                                  .build();
         target1 = createTarget(file1, profile);
         
-        profile.setReplaceWith("")
-               .setFilename(true);
-        target2 = createTarget(file2, profile);
-        
-        profile.setReplaceWith(replaceWith);
+        target2 = createTarget(file2, profile.setReplaceWith("")
+                                             .setFilename(true));
     }
     
     /* Basic API methods tests */
@@ -136,7 +134,7 @@ public abstract class FileReplacerTest {
     @Test
     public void setNewProfileInitially() {
         /* initial state must not be changed */
-        profile = new SearchProfileImpl(toFind + "other");
+        profile = profile.setToFind(toFind + "other");
         target1.setProfile(profile);
         assertThat(target1.getState(), is(BEFORE_FIND));
         
@@ -166,24 +164,29 @@ public abstract class FileReplacerTest {
         assertThat(target1.getState(), is(COMPUTED));
         
         /* create new profile */
-        profile = new SearchProfileImpl(toFind);
+        profile = SearchProfileImpl.getBuilder(toFind).build();
         
-        target1.setProfile(profile.setCharset(StandardCharsets.US_ASCII));
+        profile = profile.setCharset(StandardCharsets.US_ASCII);
+        target1.setProfile(profile);
         assertThat(target1.getState(), is(BEFORE_FIND));
         
         target1.getResult();
         
-        target1.setProfile(profile.setToFind("other" + toFind));
-        assertThat(target1.getState(), is(FIND_OTHER));
+        profile = profile.setToFind("other" + toFind);
+        target1.setProfile(profile);
+        assertThat(target1.getState(), is(FIND_OTHER)); 
         
         target1.getResult();
         
-        target1.setProfile(profile.setExclusions(new ExclusionsTrie(Arrays.asList("pre"), null, false)));
+        profile = profile.setExclusions(
+                new ExclusionsTrie(Arrays.asList("pre"), null, false));
+        target1.setProfile(profile);
         assertThat(target1.getState(), is(EXCLUDE_OTHER));
 
         target1.getResult();
         
-        target1.setProfile(profile.setReplaceWith(replaceWith + "other"));
+        profile = profile.setReplaceWith(replaceWith + "other");
+        target1.setProfile(profile);
         assertThat(target1.getState(), is(AFTER_FOUND));
         
         target1.getResult();
@@ -195,8 +198,8 @@ public abstract class FileReplacerTest {
     @Test
     public void resetProfileInnerCheck() {
         /* check renaming rule changes */
-        
-        target2.setProfile(profile.setFilename(true).setReplaceWith(""));
+        profile = profile.setReplaceWith("")
+                         .setFilename(true);
         target2.getResult();
         
         //cancel renaming
@@ -219,9 +222,9 @@ public abstract class FileReplacerTest {
         
         /* exclude filename marker */
         
-        target2.setProfile(
-                profile.setFilename(true)
-                       .setExclusions(new ExclusionsTrie(Arrays.asList("2"), null, false)));
+        profile = profile.setExclusions(
+                new ExclusionsTrie(Arrays.asList("2"), null, false));
+        target2.setProfile(profile);
         result = target2.getResult();
         assertThat(result.getModifiedName().getLast(), is(nullValue()));
         assertThat(result.numberOfModificationsMade(), is(modifications2 - 1));
@@ -265,7 +268,7 @@ public abstract class FileReplacerTest {
         assertTrue(target2.hasReplacements());
         
         /* change toFind word so nothing will be found in files */
-        profile.setToFind("other" + toFind);
+        profile = profile.setToFind("other" + toFind);
         target1.setProfile(profile);
         assertFalse(target1.hasReplacements());
         target2.setProfile(profile);
@@ -309,11 +312,13 @@ public abstract class FileReplacerTest {
         readAndCheckContent(file1, target1, true);
         
         // change replaceWith
-        target1.setProfile(profile.setReplaceWith(""));
+        profile = profile.setReplaceWith("");
+        target1.setProfile(profile);
         checkResultExpect(target1.writeResult(), modContent2, null, modifications1, false, null);
 
         // first try without renaming
-        target2.setProfile(profile.setFilename(false));
+        profile = profile.setFilename(false);
+        target2.setProfile(profile);
         checkResultExpect(target2.writeResult(), modContent2, null, modifications2 - 1, false, null);
         checkResultExpect(target2.writeResult(), modContent2, null, modifications2 - 1, false, null);
         readAndCheckContent(file2, target2, true);
@@ -325,9 +330,11 @@ public abstract class FileReplacerTest {
         Files.write(file2, origContent2);
         
         // reset state and file renaming rule
-        target2.setProfile(profile.setReplaceWith("1").setFilename(true));
+        profile = profile.setReplaceWith("1").setFilename(true);
+        target2.setProfile(profile);
         // reset replaceWith back to check results 
-        target2.setProfile(profile.setReplaceWith(""));
+        profile = profile.setReplaceWith("");
+        target2.setProfile(profile);
         checkResultExpect(target2.writeResult(), modContent2, file2Renamed, modifications2, false, null);
         readAndCheckContent(file2Renamed, target2, true);
 
@@ -339,7 +346,8 @@ public abstract class FileReplacerTest {
         Files.write(file2Renamed, origContent2);
         
         // renaming rule won't change previous result
-        target2.setProfile(profile.setFilename(true));
+        profile = profile.setFilename(true);
+        target2.setProfile(profile);
         checkResultExpect(target2.writeResult(), modContent2, file2Renamed, modifications2, false, null);
         
         // reset status (we have original file recreated)
@@ -499,9 +507,10 @@ public abstract class FileReplacerTest {
                                         "somePrefix" + toFind + "someSuffix", 
                                         "otherPrefix" + toFind + "otherSuffix"};
 
-        profile.setToFind(toFind)
-               .setReplaceWith(replaceWith)
-               .setExclusions(new ExclusionsTrie(new TreeSet<>(Arrays.asList(exclude)), toFind, true));
+        profile = profile.setToFind(toFind)
+                         .setReplaceWith(replaceWith)
+                         .setExclusions(new ExclusionsTrie(
+                                 new TreeSet<>(Arrays.asList(exclude)), toFind, true));
         target.setProfile(profile);
         return exclude;
     }

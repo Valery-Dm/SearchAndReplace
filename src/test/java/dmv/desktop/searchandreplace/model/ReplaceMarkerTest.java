@@ -27,6 +27,7 @@ public class ReplaceMarkerTest {
 
     @Test
     public void lineNumber() {
+        target.toString();
         int hashCode = target.hashCode();
         assertThat(target.getLineNumber(), is(lineNumber));
         target.setLineNumber(lineNumber + 1);

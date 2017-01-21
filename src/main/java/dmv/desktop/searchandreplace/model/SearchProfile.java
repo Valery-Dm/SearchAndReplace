@@ -3,6 +3,8 @@
  */
 package dmv.desktop.searchandreplace.model;
 
+import static java.util.Collections.emptyList;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -10,7 +12,12 @@ import java.nio.charset.StandardCharsets;
  * Interface <tt>SearchProfile.java</tt> describes methods
  * of 'How to find and replace' profile which includes info
  * of how to read a file, what to find in it, what to exclude 
- * from search and, finally, what to set in replace
+ * from search and, finally, what to set in replace.
+ * <p>
+ * The instances of this type are guaranteed to be immutable.
+ * <p>
+ * Any object must have 'what to find' string properly set.
+ * Other properties will be set to their defaults if not provided.
  * @author dmv
  * @since 2017 January 02
  */
@@ -21,6 +28,21 @@ public interface SearchProfile {
      * is {@link StandardCharsets#UTF_16}
      */
     static final Charset defaultCharset = StandardCharsets.UTF_16;
+    /**
+     * Default renaming rule is false (do not rename files)
+     */
+    static final boolean defaultRenameRule = false;
+    /**
+     * Empty set of {@link Exclusions} set by default;
+     */
+    static final Exclusions EMPTY_EXCLUSIONS = 
+            new ExclusionsTrie(emptyList(), emptyList(), false);
+    /**
+     * The 'what to find' word will be replaced with empty string
+     * by default
+     */
+    static final String EMPTY_REPLACE = "";
+    
     
     /**
      * Get current Charset. The {@link #defaultCharset} will be
@@ -34,6 +56,7 @@ public interface SearchProfile {
      * writing into a file. If the null is passed 
      * then the {@link #defaultCharset} will be used
      * @param charset {@link Charset} 
+     * @return new instance of this type
      */
     SearchProfile setCharset(Charset charset);
     
@@ -50,8 +73,10 @@ public interface SearchProfile {
      * for their content. The word given in method
      * {@link #setReplaceWith(String)} should not
      * contain symbols that are invalid for filenames,
-     * it won't be enforced though.
+     * it won't be enforced though and may result as corrupted
+     * files or system exceptions.
      * @param filename true - rename file, false - skip file name
+     * @return new instance of this type
      */
     SearchProfile setFilename(boolean filename);
     
@@ -67,6 +92,7 @@ public interface SearchProfile {
      * or an empty string in this role.
      * It should contain at least one character.
      * @param toFind String to be found
+     * @return new instance of this type
      * @throws IllegalArgumentException if given argument is null or empty
      */
     SearchProfile setToFind(String toFind);
@@ -83,11 +109,12 @@ public interface SearchProfile {
     /**
      * Set new string that will be placed instead 
      * of 'what to find'. If this object is null or empty
-     * means that found strings will be removed.
-     * Note, that if {@link #setFilename(boolean)} set to true
+     * means that found strings be replaced with nothing.
+     * Note, that if {@link #setFilename(boolean)} is set to true
      * this string should not contain symbols that are invalid 
      * for filenames, it won't be enforced or checked though.
      * @param replaceWith String to be replaced with
+     * @return new instance of this type
      */
     SearchProfile setReplaceWith(String replaceWith);
     
@@ -106,12 +133,8 @@ public interface SearchProfile {
      * if given argument is null or empty nothing will be excluded
      * during the next 'search and replace' operation
      * @param exclusions New set of exclusions
+     * @return new instance of this type
      */
     SearchProfile setExclusions(Exclusions exclusions);
 
-    /**
-     * Create a new shallow copy of the underlying object
-     * @return shallow copy of this object
-     */
-    SearchProfile clone();
 }

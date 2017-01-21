@@ -81,8 +81,8 @@ public class FileReplacerImpl implements FileReplacer {
         replaceWith = profile.getReplaceWith();
         toFindLength = profile.getToFind().length();   
         shift = replaceWith.length() - toFindLength;
-        // Getting a copy of SearchProfile
-        this.profile = profile.clone();
+        // SearchProfile object is immutable
+        this.profile = profile;
     }
 
     @Override

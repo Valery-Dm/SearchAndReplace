@@ -28,6 +28,7 @@ public abstract class TupleTest {
 
     @Test
     public void defaultConstructor() {
+        emptyTarget.toString();
         assertThat(emptyTarget.size(), is(0));
         assertTrue(emptyTarget.isEmpty());
         assertThat(emptyTarget.getFirst(), is(nullValue()));
@@ -36,6 +37,7 @@ public abstract class TupleTest {
 
     @Test
     public void argumentsConstructor() {
+        target.toString();
         assertFalse(target.isEmpty());
         assertThat(target.size(), is(2));
         assertThat(target.getFirst(), is(first));

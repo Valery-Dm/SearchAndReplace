@@ -1,16 +1,14 @@
 package dmv.desktop.searchandreplace.model;
 
+import static dmv.desktop.searchandreplace.model.SearchPath.defaultPattern;
+import static dmv.desktop.searchandreplace.model.SearchPath.defaultSubfolders;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
-import java.util.Objects;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -18,27 +16,31 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 
-public class SearchPathTest {
+public abstract class SearchPathTest {
     
     private SearchPath target;
     @Rule
     public ExpectedException expected = ExpectedException.none();
     
-    private Charset charset = StandardCharsets.UTF_8;
-    private Path folder = Paths.get("res");
+    private Path path = Paths.get("res");
     private String[] types1 = {"*.txt", "res/*.cs", "foo.?"};
     private String[] files1 = {"file.txt", "res/file.cs", "foo.z"};
     private String[] types2 = {"*.*", "*/*"};
     private String illegalType = "{{}}";
+    
+    abstract protected SearchPath getSearchPath(Path path);
 
     @Before
     public void setUp() throws Exception {
-        target = new SearchPathImpl(folder);
+        target = getSearchPath(path);
     }
 
     @Test
     public void testSetFolder() {
-        assertThat(target.getPath(), is(folder));
+        assertThat(target.getPath(), is(path));
+        Path newPath = path.resolve("foo");
+        assertThat(target.setPath(newPath)
+                         .getPath(), is(newPath));
     }
 
     @Test
@@ -48,51 +50,61 @@ public class SearchPathTest {
     }
 
     @Test
-    public void testCharset() {
-        assertThat(target.getCharset(), is(SearchPath.defaultCharset));
-        target.setCharset(charset);
-        assertThat(target.getCharset(), is(charset));
-    }
-    
-    @Test
-    public void testNullCharset() {
-        expected.expect(NullPointerException.class);
-        target.setCharset(null);
-    }
-
-    @Test
     public void testSetNamePattern() {
-        assertTrue(Objects.isNull(target.getNamePattern()));
+        assertThat(target.getNamePattern(), is(SearchPath.defaultPattern));
         
-        target.setNamePattern(types1);
-        PathMatcher fileTypes = target.getNamePattern();
+        PathMatcher fileTypes = target.setNamePattern(types1)
+                                      .getNamePattern();
         for (String s : files1)
             assertTrue(s, fileTypes.matches(Paths.get(s)));
         
-        target.setNamePattern(new String[]{});
-        assertTrue(Objects.isNull(target.getNamePattern()));
-
-        //target.setNamePattern(null);
-        assertTrue(Objects.isNull(target.getNamePattern()));
-
-        target.setNamePattern(types2);
-        fileTypes = target.getNamePattern();
+        fileTypes = target.setNamePattern(types2)
+                          .getNamePattern();
         for (String s : files1)
             assertTrue(s, fileTypes.matches(Paths.get(s)));
         
+        assertThat(target.setNamePattern(new String[]{})
+                         .getNamePattern(), is(defaultPattern));
+
+        // varargs warning
+//        assertThat(target.setNamePattern(null)
+//                         .getNamePattern(), is(SearchPath.defaultPattern));
+
+        // exception must not change previous value
         try {
             target.setNamePattern(illegalType);
         } catch (Exception e) {
             assertTrue(e.getCause() instanceof IllegalArgumentException);
-            assertTrue(Objects.isNull(target.getNamePattern()));
+            assertThat(target.getNamePattern(), is(defaultPattern));
+        }
+        
+        try {
+            target = target.setNamePattern(types2);
+            fileTypes = target.getNamePattern();
+            target.setNamePattern(illegalType);
+        } catch (Exception e) {
+            assertTrue(e.getCause() instanceof IllegalArgumentException);
+            assertThat(target.getNamePattern(), is(fileTypes));
         }
     }
 
     @Test
     public void testSetSubfolders() {
-        assertFalse(target.isSubfolders());
-        target.setSubfolders(true);
-        assertTrue(target.isSubfolders());
+        assertThat(target.isSubfolders(), is(defaultSubfolders));
+        assertThat(target.setSubfolders(!defaultSubfolders)
+                         .isSubfolders(), is(!defaultSubfolders));
+    }
+    
+    @Test
+    public void immutabilityCheck() {
+        target.setPath(path.resolve("foo"));
+        assertThat(target.getPath(), is(path));
+        
+        target.setNamePattern(files1);
+        assertThat(target.getNamePattern(), is(defaultPattern));
+        
+        target.setSubfolders(!defaultSubfolders);
+        assertThat(target.isSubfolders(), is(defaultSubfolders));
     }
 
 }

@@ -46,11 +46,11 @@ public abstract class SearchProfileTest {
     public void testCharset() {
         assertThat(target.getCharset(), is(defaultCharset));
         
-        target.setCharset(charset);
-        assertThat(target.getCharset(), is(charset));
+        assertThat(target.setCharset(charset)
+                         .getCharset(), is(charset));
         
-        target.setCharset(null);
-        assertThat(target.getCharset(), is(defaultCharset));
+        assertThat(target.setCharset(null)
+                         .getCharset(), is(defaultCharset));
     }
 
     @Test
@@ -58,8 +58,8 @@ public abstract class SearchProfileTest {
         /* false by default */
         assertFalse(target.isFileName());
         
-        target.setFilename(true);
-        assertTrue(target.isFileName());
+        assertTrue(target.setFilename(true)
+                         .isFileName());
     }
 
     @Test
@@ -68,8 +68,8 @@ public abstract class SearchProfileTest {
         assertThat(target.getToFind(), is(toFind));
         
         String other = toFind + "other";
-        target.setToFind(other);
-        assertThat(target.getToFind(), is(other));
+        assertThat(target.setToFind(other)
+                         .getToFind(), is(other));
     }
     
     @Test
@@ -89,17 +89,17 @@ public abstract class SearchProfileTest {
         /* empty by default */
         assertThat(target.getReplaceWith(), is(""));
         
-        target.setReplaceWith(replaceWith);
-        assertThat(target.getReplaceWith(), is(replaceWith));
+        assertThat(target.setReplaceWith(replaceWith)
+                         .getReplaceWith(), is(replaceWith));
         
-        target.setReplaceWith(null);
-        assertThat(target.getReplaceWith(), is(""));
+        assertThat(target.setReplaceWith(null)
+                         .getReplaceWith(), is(""));
 
-        target.setReplaceWith(replaceWith + "!");
-        assertThat(target.getReplaceWith(), is(replaceWith + "!"));
+        assertThat(target.setReplaceWith(replaceWith + "!")
+                         .getReplaceWith(), is(replaceWith + "!"));
 
-        target.setReplaceWith("");
-        assertThat(target.getReplaceWith(), is(""));
+        assertThat(target.setReplaceWith("")
+                         .getReplaceWith(), is(""));
     }
 
     @Test
@@ -107,8 +107,8 @@ public abstract class SearchProfileTest {
         /* empty by default */
         assertTrue(target.getExclusions().isEmpty());
         
-        target.setExclusions(exclusions);
-        assertThat(target.getExclusions(), is(exclusions));
+        assertThat(target.setExclusions(exclusions)
+                         .getExclusions(), is(exclusions));
     }
     
 }

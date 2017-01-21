@@ -39,6 +39,7 @@ public class UnmodifiableTupleTest extends TupleTest {
 
     @Test
     public void mutationException1() {
+        target.toString();
         exception.expect(UnsupportedOperationException.class);
         target.setFirst("3");
     }

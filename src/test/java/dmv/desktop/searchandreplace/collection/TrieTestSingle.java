@@ -11,6 +11,7 @@ public class TrieTestSingle extends TrieTest {
     
     @Test
     public void invariant1() {
+        targetEmpty.toString();
         targetEmpty.add("3");
         targetEmpty.add("3");
         targetEmpty.add("33");
@@ -39,6 +40,7 @@ public class TrieTestSingle extends TrieTest {
     
     @Test
     public void contains() {
+        target.toString();
         assertTrue(target.contains("ab"));
         assertFalse(target.contains(""));
         assertFalse(target.contains(null));

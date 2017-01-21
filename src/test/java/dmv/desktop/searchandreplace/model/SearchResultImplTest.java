@@ -60,7 +60,19 @@ public class SearchResultImplTest extends SearchResultTest {
         assertThat(result.getCause(), is(getCause()));
         assertThat(result.isExceptional(), is(getCause() != null));
     }
-
+    
+    @Test
+    public void toStringNull() {
+        SearchResultImpl result = 
+                new SearchResultImpl(getNumberOfModifications(), 
+                                     getModifiedPath(), getModifiedContent(), 
+                                     false, null);
+        result.toString();
+        result = new SearchResultImpl(0, null, null, 
+                                      getCause() != null, getCause());
+        result.toString();
+    }
+    
     @Test
     public void constructorExceptions1() {
         exception.expect(IllegalArgumentException.class);
