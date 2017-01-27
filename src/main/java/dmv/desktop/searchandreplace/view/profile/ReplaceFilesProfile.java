@@ -1,8 +1,10 @@
-package dmv.desktop.searchandreplace.model;
+package dmv.desktop.searchandreplace.view.profile;
 
 import java.nio.charset.Charset;
 import java.util.Set;
 
+import dmv.desktop.searchandreplace.model.SearchPath;
+import dmv.desktop.searchandreplace.model.SearchProfile;
 import dmv.desktop.searchandreplace.service.FolderWalker;
 
 /**
@@ -65,26 +67,27 @@ public interface ReplaceFilesProfile {
     /**
      * Get current file naming patterns which will
      * be included in {@code search and replace} operation.
-     * @return current file naming patterns
+     * @return current Array of file naming patterns
      */
-    String getIncludeNamePatterns();
-    
+    String[] getIncludeNamePatterns();
+     
     /**
-     * Set new file naming patterns which will
+     * Add new file naming pattern to existing ones which will
      * be included in {@code search and replace} operation.
-     * They won't be validated upon creation of
+     * These patterns won't be validated until creation of
      * {@link SearchPath} object. Malformed patterns
      * won't be saved in it.
+     * @param pattern Single naming pattern
      * @return this object
      */
-    ReplaceFilesProfile setIncludeNamePatterns();
+    ReplaceFilesProfile addIncludeNamePattern(String pattern);
     
     /**
      * Is subfolders should be scanned {@code true}
      * or not {@code false}.
      * @return current subfolders setting
      */
-    String isSubfolders();
+    String getSubfolders();
     
     /**
      * Set if subfolders should be scanned or not using
@@ -113,10 +116,10 @@ public interface ReplaceFilesProfile {
     
     /**
      * If file names should be searched and replaced with the
-     * same rule as for their content. Using words {@code true} or {@code false}.
+     * same rule as for their content. Use words {@code true} or {@code false}.
      * @return {@code true} if names will be modified and {@code false} if not
      */
-    String isFilenames();
+    String getFilenames();
     
     /**
      * Set if file names should be searched and replaced with the
@@ -165,13 +168,45 @@ public interface ReplaceFilesProfile {
     Set<String> getExclusions();
     
     /**
-     * Provide a set of exclusions (strings that are contain
+     * Add new exclusion to existing exclusions (strings that are contain
      * {@code toFind} string in them plus some prefix or suffix
      * and if found such a combination in a file it won't be replaced).
-     * It won't be checked until creation of {@link SearchProfile}
+     * They won't be checked until creation of {@link SearchProfile}
      * and set with wrong exclusions won't be stored in there.
-     * @param exclusions what to exclude from {@code search and replace} operation
+     * If given parameter is null or empty the existing set will be removed.
+     * @param exclusion Single exclusion
      * @return this object
      */
-    ReplaceFilesProfile setExclusions(Set<String> exclusions);
+    ReplaceFilesProfile addExclusion(String exclusion);
+    
+    /**
+     * The profile will be read and its settings will overwrite any existing.
+     * Its name will overwrite previously given name. The {@code overwriteExisting}
+     * setting will be set to true allowing this profile to be overwritten.
+     * @param profileName the name of {@link ReplaceFilesProfile profile}
+     * @return this object
+     * @throws IllegalArgumentException if profile with given name does not exist or
+     *                                  it's incorrectly formatted (cannot be parsed)
+     */
+    ReplaceFilesProfile useProfile(String profileName);
+    
+    /**
+     * Profile with current settings will be saved on disk under specified name
+     * or with name previously set if this {@code profileName} is null or empty,
+     * or, if inner parameter is also absent, name will be auto-generated.
+     * If profile with given name is already exist and {@code overwriteExisting}
+     * option is not set to true this method will throw an exception
+     * @param profileName
+     * @return this object
+     * @throws IllegalArgumentException if profile with given name is already exist
+     *                                  and {@code overwriteExisting} is false
+     */
+    ReplaceFilesProfile saveProfie(String profileName); 
+    
+    /**
+     * Will be used for second 'write profile' attempt with overwrite existing file
+     * option set to true
+     * @return this object
+     */
+    ReplaceFilesProfile setOverwrite();
 }
