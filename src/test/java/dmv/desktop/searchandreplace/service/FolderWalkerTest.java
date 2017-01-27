@@ -77,44 +77,48 @@ public abstract class FolderWalkerTest{
     }
 
     protected FolderWalker createTarget(String replaceWith, 
-                                        Exclusions exclusions, 
-                                        boolean subfolders,
-                                        boolean filenames) {
-                rootFolder = SearchPathImpl.getBuilder(testFolder)
-                                   .setNamePattern(includePaths)
-                                   .setSubfolders(subfolders)
-                                   .build();
-                
-                profile = SearchProfileImpl.getBuilder(toFind)
-                                .setReplaceWith(replaceWith)
-                                .setCharset(charset)
-                                .setExclusions(exclusions)
-                                .setFilename(filenames)
-                                .build();
-            
-                return new FolderWalker(rootFolder, profile);
-            }
+            Exclusions exclusions, 
+            boolean subfolders,
+            boolean filenames) {
+        rootFolder = SearchPathImpl.getBuilder(testFolder)
+                .setNamePattern(includePaths)
+                .setSubfolders(subfolders)
+                .build();
+
+        profile = SearchProfileImpl.getBuilder(toFind)
+                .setReplaceWith(replaceWith)
+                .setCharset(charset)
+                .setExclusions(exclusions)
+                .setFilename(filenames)
+                .build();
+
+        return new FolderWalker(rootFolder, profile);
+    }
 
     protected void writeTestFiles(Path dir, int number) throws IOException {
-                List<Path> paths = createPaths(dir, number);
-                
-                List<CompletableFuture<PreparedContent>> list = paths.stream()
-                     .map(path -> CompletableFuture.supplyAsync(() -> path))
-                     .map(future -> future.thenApplyAsync(this::prepareFile))
-                     .collect(Collectors.<CompletableFuture<PreparedContent>>toList());
-                     
-                list.stream()
-                    .map(future -> {
-                        try {
-                            return future.get();
-                        } catch (InterruptedException | ExecutionException e) {
-                            e.printStackTrace();
-                        }
-                        return null;
-                    })
-                    .forEach(content -> content.write());
-                     
-            }
+        List<Path> paths = createPaths(dir, number);
+
+        List<CompletableFuture<PreparedContent>> list = paths.stream()
+                .map(path -> CompletableFuture.supplyAsync(() -> path))
+                .map(future -> getContent(future))
+                .collect(Collectors.<CompletableFuture<PreparedContent>>toList());
+
+        list.stream()
+            .map(future -> {
+                try {
+                    return future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            })
+            .forEach(content -> content.write());
+
+    }
+    
+    private CompletableFuture<PreparedContent> getContent(CompletableFuture<Path> future) {
+        return future.thenApplyAsync(this::prepareFile);
+    }
 
     protected List<Path> createPaths(Path dir, int number) {
         List<Path> files = new ArrayList<>();

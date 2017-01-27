@@ -8,6 +8,7 @@ import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.BEFORE
 import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.COMPUTED;
 import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.INTERRUPTED;
 import static dmv.desktop.searchandreplace.service.SearchAndReplace.State.REPLACED;
+import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -117,7 +118,7 @@ public class FolderWalker
                                               .stream()
                                               .map(this::completeFuture)
                                               .filter(this::hasInformation)) {
-            return changeStateAndReturn(results.collect(Collectors.toList()), replace);
+            return changeStateAndReturn(results.collect(toList()), replace);
         } catch (IOException e) {
             state = INTERRUPTED;
             throw new AccessResourceException(e);
@@ -129,9 +130,9 @@ public class FolderWalker
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
             return SearchResultImpl.getBuilder()
-                    .setExceptional(true)
-                    .setCause(e)
-                    .build();
+                                    .setExceptional(true)
+                                    .setCause(e)
+                                    .build();
         }
     }
 
@@ -155,9 +156,7 @@ public class FolderWalker
         if (state.equals(BEFORE_FIND)) futures = readFiles(exec);
         else                           futures = readCache(exec);
         // Break ties with main thread stream by creating a list of CompletableFutures
-        return futures.map(future -> 
-                           future.thenApplyAsync(
-                                    replacer -> produceResult(replacer, replace), exec))
+        return futures.map(future -> getResult(future, exec, replace))
                       .collect(Collectors.toList());
     }
 
@@ -168,21 +167,28 @@ public class FolderWalker
                           folder.isSubfolders() ? Integer.MAX_VALUE : 1)
                     .filter(this::isPathValid)
                     .map(this::createReplacer)
-                    .map(createFuture(exec))
+                    .map(createReplacerFuture(exec))
                     .map(future -> future.thenApplyAsync(this::readFileContent, exec));
+    }
+    
+    private CompletableFuture<SearchResult> getResult(CompletableFuture<FileReplacer> future, 
+                                                      Executor exec, boolean replace) {
+        return future.thenApplyAsync(
+                replacer -> replace ? replacer.writeResult() : replacer.getResult(), exec);
     }
 
     private Stream<CompletableFuture<FileReplacer>> readCache(Executor exec) {
         Stream<CompletableFuture<FileReplacer>> futures;
         futures = foundFiles.stream() 
-                            .map(createFuture(exec));
+                            .map(createReplacerFuture(exec));
         if (state.equals(AFTER_FOUND))
             futures = futures.map(future -> future.thenApplyAsync(this::updateProfile, exec));
         return futures;
     }
 
-    private Function<? super FileReplacer, ? extends CompletableFuture<FileReplacer>>
-                                                         createFuture(Executor exec) {
+    private Function<? super FileReplacer, 
+                     ? extends CompletableFuture<FileReplacer>>
+                                                         createReplacerFuture(Executor exec) {
         return replacer -> CompletableFuture.supplyAsync(() -> replacer, exec);
     }
 
@@ -192,15 +198,10 @@ public class FolderWalker
     }
     
     private FileReplacer readFileContent(FileReplacer replacer) {
-        //System.out.println("run on thread " + Thread.currentThread().getName());
         // cache only objects with possible replacements
         if (replacer.hasReplacements()) 
             foundFiles.add(replacer);
         return replacer;
-    }
-    
-    private SearchResult produceResult(FileReplacer replacer, boolean replace) {
-        return replace ? replacer.writeResult() : replacer.getResult();
     }
     
     private boolean isPathValid(Path file) {

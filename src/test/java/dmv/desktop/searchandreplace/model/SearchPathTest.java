@@ -23,9 +23,10 @@ public abstract class SearchPathTest {
     public ExpectedException expected = ExpectedException.none();
     
     private Path path = Paths.get("res");
-    private String[] types1 = {"*.txt", "res/*.cs", "foo.?"};
     private String[] files1 = {"file.txt", "res/file.cs", "foo.z"};
+    private String[] types1 = {"*.txt", "res/*.cs", "foo.?"};
     private String[] types2 = {"*.*", "*/*"};
+    private String[] types3 = {"**"};
     private String illegalType = "{{}}";
     
     abstract protected SearchPath getSearchPath(Path path);
@@ -59,6 +60,11 @@ public abstract class SearchPathTest {
             assertTrue(s, fileTypes.matches(Paths.get(s)));
         
         fileTypes = target.setNamePattern(types2)
+                          .getNamePattern();
+        for (String s : files1)
+            assertTrue(s, fileTypes.matches(Paths.get(s)));
+        
+        fileTypes = target.setNamePattern(types3)
                           .getNamePattern();
         for (String s : files1)
             assertTrue(s, fileTypes.matches(Paths.get(s)));
