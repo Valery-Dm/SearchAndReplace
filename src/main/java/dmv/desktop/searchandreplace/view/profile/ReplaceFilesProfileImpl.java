@@ -3,14 +3,21 @@
  */
 package dmv.desktop.searchandreplace.view.profile;
 
-import java.util.*;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.Set;
+
+import dmv.desktop.searchandreplace.model.Exclusions;
+import dmv.desktop.searchandreplace.model.ExclusionsTrie;
 
 
 /**
  * Class <tt>ReplaceFilesProfileImpl.java</tt> implements
  * {@link ReplaceFilesProfile} interface providing simple 
  * refinements of incoming arguments and also an ability 
- * to read and save profile to disk.
+ * to read and save profiles onto disk.
  * @author dmv
  * @since 2017 January 23
  */
@@ -53,13 +60,17 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
 
     @Override
     public ReplaceFilesProfile setName(String name) {
-        this.name = name;
+        this.name = checkName(name);
         return this;
     }
 
     @Override
-    public String getPath() {
-        return path;
+    public Path getPath() throws WrongProfileException {
+        try {
+            return Paths.get(path);
+        } catch (Exception e) {
+            throw new WrongProfileException("Wrong path provided");
+        }
     }
 
     @Override
@@ -82,8 +93,8 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     @Override
-    public String getSubfolders() {
-        return subfolders;
+    public boolean getSubfolders() throws WrongProfileException {
+        return getBoolean(subfolders);
     }
 
     @Override
@@ -93,8 +104,13 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     @Override
-    public String getCharset() {
-        return charset;
+    public Charset getCharset() throws WrongProfileException {
+        try {
+            return charset.length() == 0 ? null :
+                   Charset.forName(charset);
+        } catch (Exception e) {
+            throw new WrongProfileException("Wrong charset name");
+        }
     }
 
     @Override
@@ -104,8 +120,8 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     @Override
-    public String getFilenames() {
-        return filenames;
+    public boolean getFilenames() throws WrongProfileException {
+        return getBoolean(filenames);
     }
 
     @Override
@@ -115,13 +131,15 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     @Override
-    public String getToFind() {
+    public String getToFind() throws WrongProfileException {
+        if (toFind.length() < 1)
+            throw new WrongProfileException("What to find was not given");
         return toFind;
     }
 
     @Override
     public ReplaceFilesProfile setToFind(String toFind) {
-        this.toFind = toFind;
+        this.toFind = refine(toFind);
         return this;
     }
 
@@ -132,13 +150,18 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
 
     @Override
     public ReplaceFilesProfile setReplaceWith(String replaceWith) {
-        this.replaceWith = replaceWith;
+        this.replaceWith = refine(replaceWith);
         return this;
     }
 
     @Override
-    public Set<String> getExclusions() {
-        return exclusions;
+    public Exclusions getExclusions() throws WrongProfileException {
+        try {
+            return exclusions.size() == 0 ? null :
+                new ExclusionsTrie(exclusions, getToFind(), true);
+        } catch (IllegalArgumentException e) {
+            throw new WrongProfileException(e);
+        }
     }
 
     @Override
@@ -182,29 +205,50 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     
     @Override
     public String toString() {
-        final int maxLen = 10;
+        /* as described in javadoc */     
         return String.format(
-                "ReplaceFilesProfile [name=%s, overwriteExisting=%s, path=%s, " +
-                "toFind=%s, replaceWith=%s, filenames=%s, subfolders=%s, charset=%s, " +
-                "includeNamePatterns=%s, exclusions=%s]",
-                name, overwriteExisting, path, toFind, replaceWith, filenames,
-                subfolders, charset,
-                includeNamePatterns != null
-                        ? toString(includeNamePatterns, maxLen) : null,
-                exclusions != null ? toString(exclusions, maxLen) : null);
+                "Name of a profile:\n%s\nOverwrite profile with the same name:\n%s\n" +
+                "Where to search, path (required):\n%s\nWhat to find (required):\n%s\n" +
+                "What to put in replace:\n%s\nCharset to use:\n%s\nModify filenames:\n%s\n" +
+                "Scan subfolders:\n%s\nInclude file name patterns:\n%s\n%s",
+                toString(name), overwriteExisting, toString(path), toString(toFind), replaceWith, 
+                toString(charset), filenames, subfolders, toString(includeNamePatterns), toStrings(exclusions));
     }
 
-    private String toString(Collection<?> collection, int maxLen) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("[");
-        int i = 0;
-        for (Iterator<?> iterator = collection.iterator(); iterator.hasNext()
-                && i < maxLen; i++) {
-            if (i > 0) builder.append(", ");
-            builder.append(iterator.next());
-        }
-        builder.append("]");
-        return builder.toString();
+    private String toStrings(Set<String> exclusions) {
+        if (exclusions.size() == 0) return "Currently not set";;
+        StringBuilder lines = new StringBuilder();
+        exclusions.forEach(exclusion -> lines.append("exclusion:")
+                                             .append(exclusion)
+                                             .append("\n")); 
+        return lines.toString();
+    }
+
+    private String toString(Set<String> set) {
+        return set.size() > 0 ? String.join(", ", set) : "Currently not set";
+    }
+
+    private String toString(String s) {
+        return s.length() > 0 ? s : "Currently not set";
+    }
+
+    private String checkName(String name) {
+        name = refine(name);
+        if (name.endsWith(FILE_EXTENSION)) 
+            name = name.substring(0, name.length() - FILE_EXTENSION.length());
+        if (name.length() == 0 || name.length() > NAME_SIZE)
+            throw new IllegalArgumentException("wrong name length");
+        for (char ch : name.toCharArray())
+            if (!isAllowed(ch))
+                throw new IllegalArgumentException("wrong character used");
+        return name;
+    }
+
+    private boolean isAllowed(char ch) {
+        return (ch == 95) || 
+               (ch >= 48 && ch <= 57) ||
+               (ch >= 65 && ch <= 90) || 
+               (ch >= 97 && ch <= 122);
     }
 
     private Set<String> newSet() {
@@ -212,7 +256,21 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     private String refine(String param) {
-        return param != null ? param.toLowerCase() : "";
+        return param != null ? param : "";
     }
-
+    
+    private boolean getBoolean(String setting) throws WrongProfileException {
+        /*
+         * It may be done just by using Boolean.parse method, but...
+         * I want to notify user in case of unintentionally wrong input.
+         * For instance, user typed word 'ture' (yeah, simply mistyped word 'true')
+         * and my program will silently apply it as 'false', and run with this
+         * unexpected setting, and therefore create undesirable output.
+         * It won't happen if program will throw an exception instead.
+         */
+        setting = setting.toLowerCase();
+        if (RECOGNIZED_BOOLEANS.containsKey(setting)) 
+            return RECOGNIZED_BOOLEANS.get(setting);
+        throw new WrongProfileException("unknown state - must be true or false");
+    }
 }

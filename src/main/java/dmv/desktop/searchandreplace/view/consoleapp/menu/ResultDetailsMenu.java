@@ -3,10 +3,9 @@
  */
 package dmv.desktop.searchandreplace.view.consoleapp.menu;
 
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.MAIN_KEYS;
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.SINGLE_RESULT;
-
 import dmv.desktop.searchandreplace.model.SearchResult;
+import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
+import dmv.desktop.searchandreplace.view.consoleapp.ReplaceFilesConsoleApplication;
 
 /**
  * Class <tt>ResultDetailsMenu.java</tt> provides a menu
@@ -14,21 +13,19 @@ import dmv.desktop.searchandreplace.model.SearchResult;
  * @author dmv
  * @since 2017 January 26
  */
-public class ResultDetailsMenu implements ConsoleMenu {
+public class ResultDetailsMenu extends ConsoleMenuAbs {
     
     private SearchResult result;
-    private ConsoleMenu previousMenu;
-    private ConsoleMenu nextMenu;
 
     /**
-     * Create menu with given parameters
-     * @param fromMenu from what menu it goes
+     * @see ConsoleMenuAbs#ConsoleMenuAbs(ReplaceFilesConsoleApplication, ConsoleMenu)
      * @param result the result which details to show
      */
-    public ResultDetailsMenu(ConsoleMenu fromMenu, SearchResult result) {
+    public ResultDetailsMenu(ConsoleApplication mainProgram,
+                             ConsoleMenu previousMenu, SearchResult result) {
+        super(mainProgram, previousMenu);
         if (result == null)
             throw new IllegalArgumentException("Result cannot be null");
-        this.previousMenu = fromMenu;
         this.result = result;
     }
 
@@ -55,34 +52,20 @@ public class ResultDetailsMenu implements ConsoleMenu {
                                            .append("\nModified: ")
                                            .append(tuple.getLast()));
         }
-        builder.append(":\n")
-               .append(SINGLE_RESULT);
-       System.out.println(builder);
+        builder.append("\n");
+        System.out.print(builder);
+        endInfo();
     }
 
     @Override
     public void showMenuHelp() {
-        System.out.println(SINGLE_RESULT);
+        endInfo();
     }
 
     @Override
     public void accept(String[] args) {
-        if (args == null || args.length != 1 || args[0] == null || args[0].length() == 0)
-            throw new IllegalArgumentException("Single operator is expected");
-        String command = args[0];
-        Runnable mainCommand = MAIN_KEYS.get(command);
-        if (mainCommand != null) mainCommand.run();
-        else {
-            int number = Integer.parseInt(args[0]);
-            if (number != 0)
-                throw new IllegalArgumentException("The 0 is expected");
-            nextMenu = previousMenu;
-        }
-    }
-
-    @Override
-    public ConsoleMenu next() {
-        return nextMenu;
+        if (!defaultCommand(args)) 
+            throw new IllegalArgumentException("unknown command");
     }
 
 }

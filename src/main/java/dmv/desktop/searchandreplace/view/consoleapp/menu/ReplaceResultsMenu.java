@@ -3,13 +3,19 @@
  */
 package dmv.desktop.searchandreplace.view.consoleapp.menu;
 
+import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
 
 /**
  * Class <tt>ReplaceResultsMenu.java</tt>
  * @author dmv
  * @since 2017 January 26
  */
-public class ReplaceResultsMenu implements ConsoleMenu {
+public class ReplaceResultsMenu extends ConsoleMenuAbs {
+
+    public ReplaceResultsMenu(ConsoleApplication mainProgram,
+                              ConsoleMenu previousMenu) {
+        super(mainProgram, previousMenu);
+    }
 
     @Override
     public void showMenu() {
@@ -21,11 +27,6 @@ public class ReplaceResultsMenu implements ConsoleMenu {
 
     @Override
     public void accept(String[] args) {
-    }
-
-    @Override
-    public ConsoleMenu next() {
-        return null;
     }
 
 }
