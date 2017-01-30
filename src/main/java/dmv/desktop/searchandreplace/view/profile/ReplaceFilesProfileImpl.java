@@ -9,8 +9,9 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 
-import dmv.desktop.searchandreplace.model.Exclusions;
-import dmv.desktop.searchandreplace.model.ExclusionsTrie;
+import dmv.desktop.searchandreplace.model.*;
+import dmv.desktop.searchandreplace.service.FolderWalker;
+import dmv.desktop.searchandreplace.service.SearchAndReplace;
 
 
 /**
@@ -67,6 +68,7 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     @Override
     public Path getPath() throws WrongProfileException {
         try {
+            if (path.length() == 0) throw new Exception();
             return Paths.get(path);
         } catch (Exception e) {
             throw new WrongProfileException("Wrong path provided");
@@ -204,6 +206,26 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
     
     @Override
+    public SearchAndReplace<SearchPath, SearchProfile, SearchResult> 
+                                createService() throws WrongProfileException {
+        try {
+            SearchPath folder = SearchPathImpl.getBuilder(getPath())
+                    .setSubfolders(getSubfolders())
+                    .setNamePattern(getIncludeNamePatterns())
+                    .build();
+            SearchProfile profile = SearchProfileImpl.getBuilder(getToFind())
+                    .setCharset(getCharset())
+                    .setReplaceWith(getReplaceWith())
+                    .setFilename(getFilenames())
+                    .setExclusions(getExclusions())
+                    .build();
+            return new FolderWalker(folder, profile);
+        } catch (Exception e) {
+            throw new WrongProfileException(e);
+        }
+    }
+    
+    @Override
     public String toString() {
         /* as described in javadoc */     
         return String.format(
@@ -216,9 +238,9 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     }
 
     private String toStrings(Set<String> exclusions) {
-        if (exclusions.size() == 0) return "Currently not set";;
+        if (exclusions.size() == 0) return "exclusion:\nCurrently not set\n";;
         StringBuilder lines = new StringBuilder();
-        exclusions.forEach(exclusion -> lines.append("exclusion:")
+        exclusions.forEach(exclusion -> lines.append("exclusion:\n")
                                              .append(exclusion)
                                              .append("\n")); 
         return lines.toString();

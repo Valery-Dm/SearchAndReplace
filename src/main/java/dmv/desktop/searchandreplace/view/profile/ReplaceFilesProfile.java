@@ -9,9 +9,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import dmv.desktop.searchandreplace.collection.TupleImpl;
-import dmv.desktop.searchandreplace.model.Exclusions;
-import dmv.desktop.searchandreplace.model.SearchPath;
-import dmv.desktop.searchandreplace.model.SearchProfile;
+import dmv.desktop.searchandreplace.model.*;
+import dmv.desktop.searchandreplace.service.SearchAndReplace;
 
 /**
  * Class <tt>ReplaceFilesProfile.java</tt> describes methods for
@@ -139,7 +138,7 @@ public interface ReplaceFilesProfile {
      * This is a required setting.
      * <p>
      * If this parameter was not set or if it contains malformed path
-     * the exception will be thrown (it won't check if path exists).
+     * the exception will be thrown (but it won't check if path exists).
      * @return current path saved in a profile
      * @throws WrongProfileException if current path is malformed or absent
      */
@@ -326,6 +325,17 @@ public interface ReplaceFilesProfile {
      * @return this object
      */
     ReplaceFilesProfile setOverwrite();
+
+    /**
+     * Create and return main interface implementation with searching
+     * and replacing files functionality. If object creation would
+     * fail because of incorrect setting in current profile then the
+     * exception will be thrown.
+     * @return {@link SearchAndReplace} service implementation
+     * @throws WrongProfileException in case of one or more incorrect settings
+     */
+    SearchAndReplace<SearchPath, SearchProfile, SearchResult> 
+                                  createService() throws WrongProfileException;
 
     /**
      * This method is a part of API and should provide output as follows:
