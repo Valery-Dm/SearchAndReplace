@@ -3,12 +3,15 @@
  */
 package dmv.desktop.searchandreplace.view.consoleapp.menu;
 
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.describeResult;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.getSingleOperator;
+
 import dmv.desktop.searchandreplace.model.SearchResult;
 import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
 import dmv.desktop.searchandreplace.view.consoleapp.ReplaceFilesConsoleApplication;
 
 /**
- * Class <tt>ResultDetailsMenu.java</tt> provides a menu
+ * Class <tt>ResultDetailsMenu.java</tt> provides a console
  * with single result details
  * @author dmv
  * @since 2017 January 26
@@ -31,29 +34,7 @@ public class ResultDetailsMenu extends ConsoleMenuAbs {
 
     @Override
     public void showMenu() {
-        String filename = "unknown name";
-        if (result.getModifiedName() != null && 
-            result.getModifiedName().getFirst() != null)
-            filename = result.getModifiedName().getFirst().toString();
-        StringBuilder builder = new StringBuilder("Results for " + filename);
-        builder.append(":\n");
-        if (result.isExceptional())
-            builder.append("Cause of exception is:\n")
-                   .append(result.getCause())
-                   .append("\n");
-        else {
-            builder.append("number of modifications - ")
-                   .append(result.numberOfModificationsMade());
-            result.getModifiedContent()
-                  .stream()
-                  .filter(tuple -> tuple.getLast() != null)
-                  .forEach(tuple -> builder.append("\nOriginal: ")
-                                           .append(tuple.getFirst())
-                                           .append("\nModified: ")
-                                           .append(tuple.getLast()));
-        }
-        builder.append("\n");
-        System.out.print(builder);
+        System.out.print(describeResult(result));
         endInfo();
     }
 
@@ -64,7 +45,8 @@ public class ResultDetailsMenu extends ConsoleMenuAbs {
 
     @Override
     public void accept(String[] args) {
-        if (!defaultCommand(args)) 
+        String operator = getSingleOperator(args);
+        if (!isMainCommand(operator)) 
             throw new IllegalArgumentException("unknown command");
     }
 

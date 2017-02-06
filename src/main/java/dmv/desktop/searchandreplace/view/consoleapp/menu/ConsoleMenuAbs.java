@@ -3,12 +3,13 @@
  */
 package dmv.desktop.searchandreplace.view.consoleapp.menu;
 
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.MAIN_KEYS;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.MAIN_COMMANDS;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.printGoBackMenu;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.printPrompt;
 
 import java.util.function.Consumer;
 
 import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
-import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
 
 /**
  * Class <tt>ConsoleMenuAbs.java</tt>
@@ -22,12 +23,15 @@ public abstract class ConsoleMenuAbs implements ConsoleMenu {
     private ConsoleMenu nextMenu;
 
     /**
-     * Track main program and previous menu
-     * @param mainProgram The program this menu belongs to
-     * @param previousMenu The previous menu to return to
+     * Track main program and previous console
+     * @param mainProgram The program this console belongs to
+     * @param previousMenu The previous console to return to
+     * @throws IllegalArgumentException if mainProgram is null
      */
     public ConsoleMenuAbs(ConsoleApplication mainProgram,
                           ConsoleMenu previousMenu) {
+        if (mainProgram == null)
+            throw new IllegalArgumentException("mainProgram must not be null");
         this.mainProgram = mainProgram;
         if (previousMenu != null) {
             // clear its next pointer
@@ -49,13 +53,12 @@ public abstract class ConsoleMenuAbs implements ConsoleMenu {
     }
     
     protected void endInfo() {
-        System.out.print(CmdUtils.TYPE_ZERO);
-        CmdUtils.showPrompt();
+        printGoBackMenu();
+        printPrompt();
     }
     
-    protected boolean defaultCommand(String[] args) {
-        String operator = CmdUtils.getSingleOperator(args);
-        Consumer<ConsoleApplication> command = MAIN_KEYS.get(operator);
+    protected boolean isMainCommand(String operator) {
+        Consumer<ConsoleApplication> command = MAIN_COMMANDS.get(operator);
         if (command != null) {
             command.accept(this);
             return true;

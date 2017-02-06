@@ -3,12 +3,16 @@
  */
 package dmv.desktop.searchandreplace.view.consoleapp.menu;
 
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.getSingleOperator;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.printMainHelp;
+
 import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
 import dmv.desktop.searchandreplace.view.consoleapp.ReplaceFilesConsoleApplication;
-import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
 
 /**
- * Class <tt>HelpMenu.java</tt>
+ * Class <tt>HelpMenu.java</tt> represents menu with
+ * program's help information. It is the last menu item.
+ * So it can only go back or exit.
  * @author dmv
  * @since 2017 January 27
  */
@@ -20,26 +24,25 @@ public class HelpMenu extends ConsoleMenuAbs {
     public HelpMenu(ConsoleApplication mainProgram,
                     ConsoleMenu previousMenu) {
         super(mainProgram, previousMenu);
-        // it's kind of last menu so it points to itself by default
+        // it's kind of the last console item, so it points to itself by default
         setNext(this);
     }
 
     @Override
     public void showMenu() {
-        System.out.print(CmdUtils.HELP);
+        printMainHelp();
         endInfo();
     }
 
     @Override
     public void showMenuHelp() {
-        // usually shows brief help
-        System.out.print(CmdUtils.BRIEF_HELP);
         endInfo();
     }
 
     @Override
     public void accept(String[] args) {
-        if (!defaultCommand(args))
+        String operator = getSingleOperator(args);
+        if (!isMainCommand(operator))
             throw new IllegalArgumentException("unknown command");
     }
 }

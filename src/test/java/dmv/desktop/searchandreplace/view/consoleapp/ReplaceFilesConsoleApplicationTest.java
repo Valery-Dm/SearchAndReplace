@@ -2,78 +2,78 @@ package dmv.desktop.searchandreplace.view.consoleapp;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.when;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-import dmv.desktop.searchandreplace.model.SearchPath;
-import dmv.desktop.searchandreplace.model.SearchProfile;
-import dmv.desktop.searchandreplace.model.SearchResult;
+import dmv.desktop.searchandreplace.collection.Tuple;
+import dmv.desktop.searchandreplace.collection.TupleImpl;
+import dmv.desktop.searchandreplace.exception.WrongProfileException;
+import dmv.desktop.searchandreplace.model.*;
 import dmv.desktop.searchandreplace.service.SearchAndReplace;
-import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
+import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfile;
 
-@SuppressWarnings("static-access")
+
 public class ReplaceFilesConsoleApplicationTest {
-
-    private static ByteArrayOutputStream output;
     
+    @Mock
+    private SearchAndReplace<SearchPath, SearchProfile, SearchResult> replacer;
+    @Mock
+    private ReplaceFilesProfile replaceProfile;
+    @InjectMocks
     private ReplaceFilesConsoleApplication target;
 
     @Before
     public void setUp() throws Exception {
-        target = new ReplaceFilesConsoleApplication();
-        output = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(output, true, "UTF-8"));
-    }
-
-    @Test
-    public void testHelp() {
-        String[] commandLine = new String[]{"help"};
-        target.main(commandLine);
-        assertThat(output.toString(), is(CmdUtils.HELP));
-    }
-
-    @Test
-    public void testHelp1() {
-        String[] commandLine = new String[]{"h"};
-        target.main(commandLine);
-        assertThat(output.toString(), is(CmdUtils.HELP));
-    }
-
-    @Test
-    public void testHelp2() {
-        String[] commandLine = new String[]{"/?"};
-        target.main(commandLine);
-        assertThat(output.toString(), is(CmdUtils.HELP));
-    }
-
-    @Test
-    public void testHelpWrongCommand() {
-        String[] commandLine = new String[]{"!!"};
-        target.main(commandLine);
-        assertThat(output.toString(), is(CmdUtils.HELP));
+        MockitoAnnotations.initMocks(this);
     }
     
-    /* test various scenarios */
-    
     @Test
-    public void scenarioMinimalSet() {
-        String dir = "src/test/resources/apptest";
-        String find = "HamiltonianCycle";
-        String commandLine = "-p " + dir + " -f " + find;
-        target.main(commandLine.split("\\s+"));
-        SearchAndReplace<SearchPath, SearchProfile, SearchResult> replacer = target.getReplacer();
-        assertThat(replacer.getRootElement().getPath(), is(dir));
-        assertThat(replacer.getProfile().getToFind(), is(find));
+    public void test1() {
+      target.parseCommand("-p", "res/subfolder", "-f", "findMe", "-r", "replaced");
+      SearchProfile searchProfile = target.getReplacer().getProfile();
+      SearchPath searchPath = target.getReplacer().getRootElement();
+      assertThat(searchPath.getPath(), is(Paths.get("res/subfolder")));
+      assertThat(searchProfile.getToFind(), is("findMe"));
     }
-    
-    @After
-    public void tearDown() throws Exception {
-        System.setOut(System.out);
+
+    @Test
+    public void test() throws WrongProfileException {
+//        when(replacer.getState())
+//            .thenReturn(SearchAndReplace.State.FIND_OTHER);
+//        State state = target.getReplacer().getState();
+//        System.out.println(state);
+        
+
+        
+        Tuple<Path, Path> modName = new TupleImpl<>(Paths.get("findMefile.txt"), 
+                                                    Paths.get("replacedfile.txt"));
+        List<Tuple<String, String>> modContent = 
+                Arrays.asList(new TupleImpl<>("Some text", null),
+                              new TupleImpl<>("Some text with findMe", "Some text with replaced"));
+        when(replacer.preview())
+            .thenReturn(Arrays.asList(SearchResultImpl.getBuilder()
+                                                      .setExceptional(true)
+                                                      .setCause(new IOException("no such file exists"))
+                                                      .build(),
+                                      SearchResultImpl.getBuilder()
+                                                      .setNumberOfModificationsMade(2)
+                                                      .setModifiedName(modName)
+                                                      .setModifiedContent(modContent)
+                                                      .build()));
+        
+        List<SearchResult> preview = target.getReplacer().preview();
+        System.out.println(preview);
     }
 
 }

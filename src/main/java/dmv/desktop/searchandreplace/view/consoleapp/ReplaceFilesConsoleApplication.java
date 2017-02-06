@@ -1,23 +1,25 @@
 package dmv.desktop.searchandreplace.view.consoleapp;
 
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.ATTEMPTS;
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.MAIN_KEYS;
-import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.PARAMETER_KEYS;
+import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.*;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
-import dmv.desktop.searchandreplace.model.*;
-import dmv.desktop.searchandreplace.service.FolderWalker;
+import dmv.desktop.searchandreplace.exception.AccessResourceException;
+import dmv.desktop.searchandreplace.exception.NothingToReplaceException;
+import dmv.desktop.searchandreplace.exception.WrongProfileException;
+import dmv.desktop.searchandreplace.model.SearchPath;
+import dmv.desktop.searchandreplace.model.SearchProfile;
+import dmv.desktop.searchandreplace.model.SearchResult;
 import dmv.desktop.searchandreplace.service.SearchAndReplace;
 import dmv.desktop.searchandreplace.view.consoleapp.menu.ConsoleMenu;
 import dmv.desktop.searchandreplace.view.consoleapp.menu.PreviewResultsMenu;
 import dmv.desktop.searchandreplace.view.consoleapp.menu.ReplaceResultsMenu;
-import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
 import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfile;
 import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfileImpl;
 
@@ -41,41 +43,30 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
      * recognize main program's commands and parameter keys.
      * @param args command line arguments
      */
-    public void parseCommand(String[] args) {
+    public void parseCommand(String... args) {
         replace = false;
         replaceProfile = new ReplaceFilesProfileImpl();
         try {
-            if (args[0].charAt(0) != '-') {
-                // every main command at this step
-                // will finalize the program
-                if (!doMainCommand(args[0]))
-                    collectParameters(args, 1);
-            } else 
-                collectParameters(args, 0);
-            if (!exit) createReplacer();
+            int i = 0;
+            if (args[i].charAt(0) != '-') 
+                doMainCommand(args[i++]);
+            if (!exit) {
+                collectParameters(args, i);
+                replacer = replaceProfile.createService();
+                ConsoleMenu menu = replace ? new ReplaceResultsMenu(this, null) :
+                                             new PreviewResultsMenu(this, null);
+                menuFlowFrom(menu);
+            }
+        } catch (WrongProfileException wpe) {
+            System.out.println(wpe.getMessage());
+        } catch (NothingToReplaceException ntpe) {
+            System.out.println(NOTHING_WAS_FOUND);
+        } catch(AccessResourceException ase) {
+            System.out.println(RESOURCE_ACCESS);
         } catch (Exception e) {
             showMainHelp();
-            exit();
         }
-    }
-
-    private void createReplacer() {
-        try {
-            SearchPath folder = SearchPathImpl.getBuilder(replaceProfile.getPath())
-                    .setSubfolders(replaceProfile.getSubfolders())
-                    .setNamePattern(replaceProfile.getIncludeNamePatterns())
-                    .build();
-            SearchProfile profile = SearchProfileImpl.getBuilder(replaceProfile.getToFind())
-                    .setCharset(replaceProfile.getCharset())
-                    .setReplaceWith(replaceProfile.getReplaceWith())
-                    .setFilename(replaceProfile.getFilenames())
-                    .setExclusions(replaceProfile.getExclusions())
-                    .build();
-            replacer = new FolderWalker(folder, profile);
-        } catch (Exception e) {
-            // TODO show the whole profile to user, and
-            exit();
-        }
+        exit();
     }
 
     public SearchAndReplace<SearchPath, SearchProfile, SearchResult> getReplacer() {
@@ -90,36 +81,33 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
             if (key.charAt(0) != '-')
                 throw new IllegalArgumentException("A key expected at this position");
             String param = ++i < args.length ? args[i] : "";
-            // if next is a key (i.e. parameter was empty)
+            // if next word is a key (i.e. parameter was empty)
             if (param.length() > 0 && param.charAt(0) == '-') {
                 param = "";
                 i--;
             } 
+            // NPE will be caught in wrapper method
             PARAMETER_KEYS.get(key)
                           .apply(replaceProfile, param);
             collectParameters(args, ++i);
         }
     }
 
-    private boolean doMainCommand(String s) {
-        Consumer<ConsoleApplication> command = MAIN_KEYS.get(s);
-        
+    private void doMainCommand(String s) {
+        Consumer<ConsoleApplication> command = MAIN_COMMANDS.get(s);
         if (command != null) {
             command.accept(this);
             exit();
-            return true;
-        }
-        else if (s.equals(NOPREVIEW)) {
+        } else if (isNoPreview(s)) {
             setReplace();
-            return false;
-        }
-        else throw new IllegalArgumentException("unknown command");
+        } else throw new IllegalArgumentException("unknown command");
     }
     
+    /* recursively go through program menus */
     private void runMenu(ConsoleMenu menu, BufferedReader reader, int attempts) {
         /* simple overflow protection */
         if (attempts <= 0) {
-            System.out.println("Go, play some toys");
+            printTooManyAttempts();
             return;
         }
         try {
@@ -135,18 +123,11 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
         }
     }
 
-    private void insideProgram() {
-        if (!exit) {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
-                ConsoleMenu menu = replace ? new ReplaceResultsMenu(this, null) :
-                                             new PreviewResultsMenu(this, null);
-                menu.showMenu();
-                runMenu(menu, reader, ATTEMPTS);
-            } catch (Exception e) {
-                CmdUtils.tellAbout(e);
-                exit();
-            }
-        }
+    private void menuFlowFrom(ConsoleMenu menu) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+            menu.showMenu();
+            runMenu(menu, reader, ATTEMPTS);
+        } 
     }
 
     public List<SearchResult> preview() {
@@ -159,7 +140,7 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
     
     @Override
     public void showMainHelp() {
-        System.out.print(CmdUtils.HELP);
+        printMainHelp();
     }
     
     @Override
@@ -169,7 +150,7 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
 
     @Override
     public void cancel() {
-        // there is no operations, so
+        // there is no operations here, so just
         exit();
     }
 
@@ -184,17 +165,15 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
         ReplaceFilesConsoleApplication app = new ReplaceFilesConsoleApplication();
         app.parseCommand(args);
-        app.insideProgram();
         shutdown();
     }
 
     private static void shutdown() {
-        System.out.println("shutdown program...");
+        //System.out.println("shutdown program...");
         if (!EXECS_POOL.isShutdown())
             EXECS_POOL.shutdownNow();
     }
 
-    private static final String NOPREVIEW = "nopreview";
     private static final int UNITS = Runtime.getRuntime().availableProcessors() * 2;
     private static final ExecutorService EXECS_POOL = Executors.newFixedThreadPool(UNITS);
     

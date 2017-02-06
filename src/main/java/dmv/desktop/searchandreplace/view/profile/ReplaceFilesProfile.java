@@ -1,33 +1,43 @@
 package dmv.desktop.searchandreplace.view.profile;
 
 import static java.util.Collections.unmodifiableMap;
-import static java.util.Collections.unmodifiableSet;
 
 import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import dmv.desktop.searchandreplace.collection.TupleImpl;
-import dmv.desktop.searchandreplace.model.*;
+import dmv.desktop.searchandreplace.exception.WrongProfileException;
+import dmv.desktop.searchandreplace.model.SearchPath;
+import dmv.desktop.searchandreplace.model.SearchProfile;
+import dmv.desktop.searchandreplace.model.SearchResult;
 import dmv.desktop.searchandreplace.service.SearchAndReplace;
+import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
 
 /**
- * Class <tt>ReplaceFilesProfile.java</tt> describes methods for
+ * Interface <tt>ReplaceFilesProfile.java</tt> describes methods for
  * creating and editing program profiles, and also saving and 
  * reading them from disk.
  * <p>
- * Its exceptional policy is a bit odd - it would throw an 
- * exception on parameter's get method call if that parameter is
- * wrong. That's done so because instance variables are stored
- * as simple strings for easier reading/writing file operations,
- * and the main goal is to collect them all (good and bad) first
- * and then, if their 'real' implementations that are needed for
- * further processing could not be created because of some
- * inconsistency, the whole profile will be shown to the user.
+ * Its exceptional policy is a bit odd - it won't throw an exception
+ * when incorrect parameter was set for the first time. 
+ * That's done so because the main goal is to collect all parameters 
+ * (good and bad) given at program start as simple strings and then, 
+ * if their 'real' implementations that are needed for further processing 
+ * could not be used due to some inconsistency, the whole profile 
+ * will be shown to the user allowing to edit incorrect fields.
  * <p>
- * So it's needed for smooth user experience. The only exception
- * is a profile name - this will be validated upon set.
+ * In edit mode, any parameter will be given and set separately, and
+ * also validated at set time, immediately falling back in case of
+ * incorrect input (via {@link WrongProfileException}).
+ * <p>
+ * Note, that exception is also possible on service update operation even
+ * if all parameters were correct. It may happen if service is in exceptional
+ * state already and given parameters are not sufficient enough to change it.
+ * <p>
+ * So, it's needed for smooth user experience. The only exception here
+ * is a profile name - this one will be validated upon every set operation.
  * @author dmv
  * @since 2017 January 21
  */
@@ -85,28 +95,6 @@ public interface ReplaceFilesProfile {
                   .collect(Collectors.toMap(tuple -> tuple.getFirst(), 
                                             tuple -> tuple.getLast())));
 
-    /**
-     * Given names are expected to appear in a profile as parameter keys:
-     * <pre>
-     * Where to search, path (required)
-     * What to find (required)
-     * What to put in replace
-     * Charset to use
-     * Modify filenames
-     * Scan subfolders
-     * Include file name patterns
-     * exclusion
-     * </pre>
-     */
-    static final Set<String> PARAMETER_NAMES = unmodifiableSet(
-                 new HashSet<>(Arrays.asList("Where to search, path (required)",
-                                             "What to find (required)",
-                                             "What to put in replace",
-                                             "Charset to use",
-                                             "Modify filenames",
-                                             "Scan subfolders",
-                                             "Include file name patterns",
-                                             "exclusion")));
 
     /**
      * Get current profile name or empty string if it was not set
@@ -132,80 +120,41 @@ public interface ReplaceFilesProfile {
     ReplaceFilesProfile setName(String name);
 
     /**
-     * Get current path to a file or 
-     * to a folder where program will do its search.
-     * <p>
-     * This is a required setting.
-     * <p>
-     * If this parameter was not set or if it contains malformed path
-     * the exception will be thrown (but it won't check if path exists).
-     * @return current path saved in a profile
-     * @throws WrongProfileException if current path is malformed or absent
-     */
-    Path getPath() throws WrongProfileException;
-    
-    /**
      * Set new path to a file or folder where program
-     * will run its search. It won't be validated upon
-     * storage, but when the {@link SearchPath} is constructed,
+     * will run its search. It won't be validated right
+     * away, but when the {@link SearchPath} is constructed,
      * malformed or empty paths will trigger an exception. 
      * @param path File or folder path
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile setPath(String path);
-    
-    /**
-     * Get current file naming patterns which will
-     * be included in {@code search and replace} operation.
-     * @return current Array of file naming patterns
-     */
-    String[] getIncludeNamePatterns();
      
     /**
      * Add new file naming pattern to existing ones which will
      * be included in {@code search and replace} operation.
      * These patterns won't be validated until creation of
-     * {@link SearchPath} object. Malformed patterns may trigger
-     * an exception later. 
+     * {@link SearchPath} object for the first time. 
+     * Malformed patterns may trigger an exception later. 
      * <p>
      * Any existing patterns will be removed if argument is null or empty.
      * @param pattern Single naming pattern
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile addIncludeNamePattern(String pattern);
-    
-    /**
-     * Is subfolders should be scanned {@code true}
-     * or not {@code false}.
-     * <p>
-     * Because this setting constructed from certain words
-     * given in a profile or through a setter method,
-     * if those words were not expected ones the exception
-     * will be thrown now on this method call.
-     * @return current subfolders setting
-     * @throws WrongProfileException if current setting is not one of
-     *                               {@link ReplaceFilesProfile#RECOGNIZED_BOOLEANS 
-     *                               expected} words
-     */
-    boolean getSubfolders() throws WrongProfileException;
     
     /**
      * Set whether subfolders should be scanned or not using
      * {@link ReplaceFilesProfile#RECOGNIZED_BOOLEANS allowed} words.
      * @param subfolders {@code true} - include subfolders, {@code false} - skip them
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile setSubfolders(String subfolders);
-    
-    /**
-     * Get current charset or null if nothing set.
-     * If current setting is non-empty string but it is
-     * unrecognized as a valid charset name the exception
-     * will be thrown
-     * @return current charset or null
-     * @throws WrongProfileException if given charset is unrecognized
-     */
-    Charset getCharset() throws WrongProfileException;
     
     /**
      * Set charset name as described {@link Charset here}.
@@ -214,18 +163,10 @@ public interface ReplaceFilesProfile {
      * will trigger an exception.
      * @param charset Charset name
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile setCharset(String charset);
-    
-    /**
-     * If file names should be searched and replaced with the
-     * same rule as for their content. 
-     * @return {@code true} if names will be modified and {@code false} if not
-     * @throws WrongProfileException if current setting is not one of
-     *                               {@link ReplaceFilesProfile#RECOGNIZED_BOOLEANS 
-     *                               expected} words
-     */
-    boolean getFilenames() throws WrongProfileException;
     
     /**
      * Set if file names should be searched and replaced with the
@@ -235,16 +176,10 @@ public interface ReplaceFilesProfile {
      * @param filenames {@code true} if file names should be modified 
      *                  and {@code false} if not.
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile setFilenames(String filenames);
-    
-    /**
-     * Get current {@code what to find} string, which is
-     * at least one character long.
-     * @return current {@code what to find} string
-     * @throws WrongProfileException if this parameter is empty
-     */
-    String getToFind() throws WrongProfileException;
     
     /**
      * Set {@code what to find} string. It should contain at least
@@ -252,32 +187,18 @@ public interface ReplaceFilesProfile {
      * creation though and empty string will trigger an exception.
      * @param toFind {@code what to find} string
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile setToFind(String toFind);
     
     /**
-     * Get current string that will be placed instead of found one,
-     * this could be an empty string
-     * @return current {@code replace with} string
-     */
-    String getReplaceWith();
-    
-    /**
-     * Set string that will be placed instead of found one
+     * Set string that will be placed instead of found one.
+     * If it's null or empty - found phrases will be simply removed.
      * @param replaceWith what to place instead of found string
      * @return this object
      */
     ReplaceFilesProfile setReplaceWith(String replaceWith);
-    
-    /**
-     * Get current exclusions in a form of
-     * {@link Exclusions} type, because this object creation
-     * uses a {@code what to find} setting it may throw an exception
-     * if latter was not provided.
-     * @return current set of exclusions
-     * @throws WrongProfileException if creation of required type fails
-     */
-    Exclusions getExclusions() throws WrongProfileException;
     
     /**
      * Add new exclusion to existing exclusions (strings that are contain
@@ -289,6 +210,8 @@ public interface ReplaceFilesProfile {
      * If given parameter is null or empty the existing set will be removed.
      * @param exclusion Single exclusion
      * @return this object
+     * @throws WrongProfileException in {@code edit mode} 
+     *                               (i.e. when service is already created)
      */
     ReplaceFilesProfile addExclusion(String exclusion);
     
@@ -298,8 +221,12 @@ public interface ReplaceFilesProfile {
      * setting will be set to true allowing this profile to be overwritten.
      * @param profileName the name of {@link ReplaceFilesProfile profile}
      * @return this object
-     * @throws IllegalArgumentException if profile with given name does not exist or
-     *                                  it's incorrectly formatted (cannot be parsed)
+     * @throws IllegalArgumentException if name contains disallowed symbols
+     *                                  or its length is greater than
+     *                                  {@value #NAME_SIZE} characters 
+     *                                  or if it's null or empty
+     * @throws IllegalStateException if profile with given name does not exist or
+     *                               it's incorrectly formatted (cannot be parsed)
      */
     ReplaceFilesProfile useProfile(String profileName);
     
@@ -307,12 +234,15 @@ public interface ReplaceFilesProfile {
      * Profile with current settings will be saved on disk under specified name
      * or with name previously set if this {@code profileName} is null or empty,
      * or, if inner parameter is also absent, name will be auto-generated.
-     * If profile with given name is already exist and {@code overwriteExisting}
+     * If profile with given name already exists and {@code overwriteExisting}
      * option is not set to true this method will throw an exception
      * @param profileName The name under which the profile will be saved
      * @return this object
-     * @throws IllegalArgumentException if profile with given name is already exist
-     *                                  and {@code overwriteExisting} setting is false
+     * @throws IllegalArgumentException if name contains disallowed symbols
+     *                                  or its length is greater than
+     *                                  {@value #NAME_SIZE} characters 
+     * @throws IllegalStateException if profile with given name already exists
+     *                               and {@code overwriteExisting} setting is false
      */
     ReplaceFilesProfile saveProfie(String profileName); 
     
@@ -327,56 +257,83 @@ public interface ReplaceFilesProfile {
     ReplaceFilesProfile setOverwrite();
 
     /**
-     * Create and return main interface implementation with searching
+     * Create (for the first time) or update and then return the main 
+     * {@link SearchAndReplace} interface implementation with searching
      * and replacing files functionality. If object creation would
      * fail because of incorrect setting in current profile then the
      * exception will be thrown.
      * @return {@link SearchAndReplace} service implementation
-     * @throws WrongProfileException in case of one or more incorrect settings
+     * @throws WrongProfileException when some settings are incorrect or they are not
+     *                               enough to reset exceptional state of existing
+     *                               service
      */
-    SearchAndReplace<SearchPath, SearchProfile, SearchResult> 
-                                  createService() throws WrongProfileException;
+    SearchAndReplace<SearchPath, SearchProfile, SearchResult> createService();
 
     /**
      * This method is a part of API and should provide output as follows:
      * <p>
-     * (for each parameter that is absent there should be a phrase {@code Currently not set})
-     * <pre>
-     * Name of a profile:           
-     * Current_name
-     * Overwrite profile with the same name: 
-     * true or false
-     * Where to search, path (required):             
-     * Current_path
-     * What to find (required):    
-     * Current_to_find
-     * What to put in replace:      
-     * Current_replace_with (it is always set, even when it's empty)
-     * Charset to use:              
-     * Current_charset
-     * Modify filenames:            
-     * (If properly set) true or false
-     * Scan subfolders:             
-     * (If properly set) true or false
-     * Include file name patterns:  
-     * Comma_separated_list_of_patterns 
-     * (List of exclusions)  
-     * exclusion: One_of_exclusions
-     * exclusion: Another_one
-     * etc...           
-     * 
-     * </pre>
-     * All parameters may not be validated yet (except for the profile name)
-     * and shown as they were provided. {@code Overwrite} setting is
-     * not a part of a profile and won't be saved in a file, it is shown
-     * here just for information. Other settings are shown exactly as they 
-     * would be saved in a profile.
+     * Each parameter key is a full version of command line keys, for
+     * example {@link CmdUtils#KEYS_FIND these} are for {@code What to find} parameter.
+     * The parameter itself is expected on the next line.
      * <p>
-     * Note that string parameters ({@code what to find}, {@code what to put in replace},
+     * Comments are allowed on the same line as the key (behind double hashtag).
+     * <p>
+     * Note, that for string parameters (like find, exclude etc) any character counts
+     * including new line characters, several spaces etc.
+     * <p>
+     * For each parameter that is absent there should be a phrase {@code Currently not set}
+     * or {@code false} for boolean parameters. {@code Replace with} parameter is an
+     * empty string by default, and it is always considered to be set.
+     * <p>
+     * {@code Included name patterns} will be combined in one parameter as comma-separated list.
+     * {@code Exclusions} are given separately in the end of file.
+     * <pre>
+     * Name of a profile
+     * Current_name
+     * Overwrite profile with the same name
+     * true or false
+     * 
+     * -path ## required
+     * Current_Where_to_search_path
+     * -find ## required
+     * Current_What_to_find_phrase
+     * -replace
+     * Current_replace_with
+     * -charset
+     * Current_charset
+     * -filenames
+     * Current_boolean_word
+     * -subfolders
+     * Current_boolean_word
+     * -namepattern
+     * Comma_separated_list_of_patterns
+     * -exclude
+     * One_of_exclusions
+     * -exclude
+     * Another_one
+     * ...
+     * </pre>
+     * All parameters stored before validation (except for the profile name)
+     * and shown as they were provided. {@code Name} and {@code Overwrite} settings
+     * are not a part of a profile and won't be saved in a file. Other parameters 
+     * are shown exactly as they would be saved in a profile.
+     * <p>
+     * When creating your own profiles you are allowed to use either version of 
+     * parameter's key (long or short). But the toString method will always print 
+     * long version.
+     * <p>
+     * {@code Name patterns} could be typed in a profile separately (i.e. each
+     * pattern after {@code -namepattern} key), but in toString output they
+     * always will be combined into one comma-separated list.
+     * <p>
+     * Note, that string parameters ({@code what to find}, {@code what to put in replace},
      * and any of {@code exclusions}) may contain special characters like {@code new line}
      * \n character of {@code tab} \t or else, so to be correctly recognized they are
      * expected to start exactly at the new line after corresponding key and ends before
-     * the next key (on separate line) or the end of a file mark.
+     * the next key (on separate line) or the end of a file mark. Any spaces or new line
+     * characters will be consumed exactly as they are given in a profile.
+     * <p>
+     * Other parameters will be trimmed out of surrounding spaces.
      * @return Formatted string representation of a profile
      */
     @Override

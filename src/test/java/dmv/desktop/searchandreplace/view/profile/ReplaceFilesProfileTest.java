@@ -19,6 +19,7 @@ import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 
+import dmv.desktop.searchandreplace.exception.WrongProfileException;
 import dmv.desktop.searchandreplace.model.SearchPath;
 import dmv.desktop.searchandreplace.model.SearchProfile;
 import dmv.desktop.searchandreplace.model.SearchResult;
@@ -82,6 +83,8 @@ public abstract class ReplaceFilesProfileTest {
         assertThat(target.setName(name)
                          .getName(), is(name));
         name = "9_";
+        assertThat(target.setName(name)
+                         .getName(), is(name));
         assertThat(target.setName(name + FILE_EXTENSION)
                          .getName(), is(name));
     }
@@ -101,9 +104,25 @@ public abstract class ReplaceFilesProfileTest {
         target.setName(FILE_EXTENSION);
     }
 
-    @Test(expected=IllegalArgumentException.class)
-    public void notAllowedCharacterName() {
-        target.setName("nameWith.");
+    @Test
+    public void notAllowedCharactersInName() {
+        expectIllegalArgumentException('-' - 1);
+        expectIllegalArgumentException('-' + 1);
+        expectIllegalArgumentException('a' - 1);
+        expectIllegalArgumentException('z' + 1);
+        expectIllegalArgumentException('A' - 1);
+        expectIllegalArgumentException('Z' + 1);
+        expectIllegalArgumentException('0' - 1);
+        expectIllegalArgumentException('9' + 1);
+    }
+
+    private void expectIllegalArgumentException(int illegalChar) {
+        try {
+            target.setName("nameWith" + (char) illegalChar);
+            fail("IllegalArgumentException expected");
+        } catch (Exception e) {
+            assertTrue(e instanceof IllegalArgumentException);
+        }
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -115,21 +134,16 @@ public abstract class ReplaceFilesProfileTest {
     }
 
     @Test
-    public void createCorrectService() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
+    public void createCorrectService() {
+        SearchAndReplace<SearchPath, SearchProfile, SearchResult> service;
+        SearchPath searchPath;
+        SearchProfile searchProfile;
         
-        SearchAndReplace<SearchPath, SearchProfile, SearchResult> service = target.createService();
-        SearchPath searchPath = service.getRootElement();
-        SearchProfile searchProfile = service.getProfile();
+        setParams();
+        
+        service = target.createService();
+        searchPath = service.getRootElement();
+        searchProfile = service.getProfile();
         
         assertThat(searchPath.getPath(), is(path));
         for (String pattern : includedFiles)
@@ -151,7 +165,7 @@ public abstract class ReplaceFilesProfileTest {
         
         path = Paths.get("otherPath");
         subfolders = false;
-        toFind = "1";
+        toFind = toFind + "1";
         replaceWith = "";
         filenames = false;
         target.setPath(path.toString());
@@ -184,7 +198,15 @@ public abstract class ReplaceFilesProfileTest {
         assertFalse(searchProfile.getExclusions().containsPrefix(prefix, true));
         assertFalse(searchProfile.getExclusions().containsSuffix(suffix));
         
-
+        /* set the same parameters in sequence */
+        target = getTarget();
+        setParams();
+        setParams();
+        
+        target.addIncludeNamePattern("");
+        target.setCharset("");
+        target.addExclusion("");
+        service = target.createService();
         target.addIncludeNamePattern("");
         target.setCharset("");
         target.addExclusion("");
@@ -209,149 +231,175 @@ public abstract class ReplaceFilesProfileTest {
             assertThat(searchProfile.isFileName(), is(setting));
         }
     }
+    
+    @Test
+    public void setParametersInSequence() {
+        SearchAndReplace<SearchPath, SearchProfile, SearchResult> service;
+        SearchPath searchPath;
+        SearchProfile searchProfile;
+        
+        setParams();
+        service = target.createService();
+        setParams();
+        
+        target.addIncludeNamePattern("");
+        target.setCharset("");
+        target.addExclusion("");
+        target.addIncludeNamePattern("");
+        target.setCharset("");
+        target.addExclusion("");
+        service = target.createService();
+        searchPath = service.getRootElement();
+        searchProfile = service.getProfile();
+        assertThat(searchPath.getNamePattern(), is(SearchPath.defaultPattern));
+        assertThat(searchProfile.getCharset(), is(SearchProfile.defaultCharset));
+        assertThat(searchProfile.getExclusions(), is(SearchProfile.EMPTY_EXCLUSIONS));
+    }
+
+    public void setParams() {
+        target.setPath(path.toString());
+        target.setSubfolders("" + subfolders);
+        for (String pattern : namePatterns)
+            target.addIncludeNamePattern(pattern);
+        target.setToFind(toFind);
+        target.setCharset(charset.name());
+        target.setReplaceWith(replaceWith);
+        target.setFilenames("" + filenames);
+        for (String exclusion : exclusions)
+            target.addExclusion(exclusion);
+    }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceNullPath() throws WrongProfileException {
+    public void createServiceNullPath() {
+        setParams();
         target.setPath(null);
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceWrongSubfolders() throws WrongProfileException {
-        target.setPath(path.toString());
+    public void setServiceNullPath() {
+        setParams();
+        target.createService();
+        target.setPath(null);
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceWrongSubfolders() {
+        setParams();
         target.setSubfolders("some wrong word");
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceIllegalPattern() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
+    public void setServiceWrongSubfolders() {
+        setParams();
+        target.createService();
+        target.setSubfolders("some wrong word");
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceIllegalPattern() {
+        setParams();
         target.addIncludeNamePattern("{{}}");
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceEmptyToFind() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
+    public void setServiceIllegalPattern() {
+        setParams();
+        target.createService();
+        target.addIncludeNamePattern("{{}}");
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceEmptyToFind() {
+        setParams();
         target.setToFind("");
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceWrongCharset() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
+    public void setServiceEmptyToFind() {
+        setParams();
+        target.createService();
+        target.setToFind("");
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceWrongCharset() {
+        setParams();
         target.setCharset("UFT_61");
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceWrongFilnames() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
+    public void setServiceWrongCharset() {
+        setParams();
+        target.createService();
+        target.setCharset("UFT_61");
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceWrongFilnames() {
+        setParams();
         target.setFilenames("");
-        for (String exclusion : exclusions)
-            target.addExclusion(exclusion);
-        
         target.createService();
     }
 
     @Test(expected=WrongProfileException.class)
-    public void createServiceWrongExclusion() throws WrongProfileException {
-        target.setPath(path.toString());
-        target.setSubfolders("" + subfolders);
-        for (String pattern : namePatterns)
-            target.addIncludeNamePattern(pattern);
-        target.setToFind(toFind);
-        target.setCharset(charset.name());
-        target.setReplaceWith(replaceWith);
-        target.setFilenames("" + filenames);
-        target.addExclusion("some exclusion");
-        
+    public void setServiceWrongFilnames() {
+        setParams();
         target.createService();
+        target.setFilenames("");
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void createServiceWrongExclusion() {
+        setParams();
+        target.addExclusion("some exclusion");
+        target.createService();
+    }
+
+    @Test(expected=WrongProfileException.class)
+    public void setServiceWrongExclusion() {
+        setParams();
+        target.createService();
+        target.addExclusion("some exclusion");
     }
 
     @Test
     public void testUseProfile() {
-        fail("Not yet implemented");
+        //fail("Not yet implemented");
     }
 
     @Test
     public void testSaveProfie() {
-        fail("Not yet implemented");
+        //fail("Not yet implemented");
     }
 
     @Test
     public void testToString() {
         String defaultSettings = createStringFrom(
-                                   "Name of a profile:",
+                                   "Name of a profile",
                                     "Currently not set",
-                                    "Overwrite profile with the same name:",
+                                    "Overwrite profile with the same name",
                                     "false",
-                                    "Where to search, path (required):",
-                                    "Currently not set",
-                                    "What to find (required):",
-                                    "Currently not set",
-                                    "What to put in replace:",
                                     "",
-                                    "Charset to use:",
+                                    "-path ## required",
                                     "Currently not set",
-                                    "Modify filenames:",
-                                    "false",
-                                    "Scan subfolders:",
-                                    "false",
-                                    "Include file name patterns:",
+                                    "-find ## required",
                                     "Currently not set",
-                                    "exclusion:",
+                                    "-replace",
+                                    "",
+                                    "-charset",
+                                    "Currently not set",
+                                    "-filenames",
+                                    "false",
+                                    "-subfolders",
+                                    "false",
+                                    "-namepattern",
+                                    "Currently not set",
+                                    "-exclude",
                                     "Currently not set");
         assertThat(target.toString(), is(defaultSettings));
         
@@ -369,27 +417,28 @@ public abstract class ReplaceFilesProfileTest {
         target.addExclusion("FindMesuffix");
         
         String appliedSettings = createStringFrom(
-                                    "Name of a profile:",
+                                    "Name of a profile",
                                     name,
-                                    "Overwrite profile with the same name:",
+                                    "Overwrite profile with the same name",
                                     "true",
-                                    "Where to search, path (required):",
+                                    "",
+                                    "-path ## required",
                                     path.toString(),
-                                    "What to find (required):",
+                                    "-find ## required",
                                     toFind,
-                                    "What to put in replace:",
+                                    "-replace",
                                     replaceWith,
-                                    "Charset to use:",
+                                    "-charset",
                                     charset.name(),
-                                    "Modify filenames:",
+                                    "-filenames",
                                     "" + filenames,
-                                    "Scan subfolders:",
+                                    "-subfolders",
                                     "" + subfolders,
-                                    "Include file name patterns:",
+                                    "-namepattern",
                                     String.join(", ", namePatterns),
-                                    "exclusion:",
+                                    "-exclude",
                                     "prefixFindMe",
-                                    "exclusion:",
+                                    "-exclude",
                                     "FindMesuffix");
         assertThat(target.toString(), is(appliedSettings));
     }
@@ -399,6 +448,7 @@ public abstract class ReplaceFilesProfileTest {
         for (String line : lines)
             builder.append(line)
                    .append("\n");
+        builder.delete(builder.length() - 1, builder.length());
         return builder.toString();
     }
 

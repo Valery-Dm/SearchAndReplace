@@ -1,140 +1,196 @@
-/**
- * 
- */
 package dmv.desktop.searchandreplace.view.consoleapp.utility;
 
-import static dmv.desktop.searchandreplace.model.SearchProfile.defaultCharset;
+import static java.text.MessageFormat.format;
+import static java.util.ResourceBundle.getBundle;
 
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
-import dmv.desktop.searchandreplace.exception.AccessResourceException;
-import dmv.desktop.searchandreplace.exception.NothingToReplaceException;
+import dmv.desktop.searchandreplace.model.SearchProfile;
 import dmv.desktop.searchandreplace.model.SearchResult;
 import dmv.desktop.searchandreplace.view.consoleapp.ConsoleApplication;
 import dmv.desktop.searchandreplace.view.consoleapp.menu.HelpMenu;
 import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfile;
 
 /**
- * Class <tt>CmdUtils.java</tt>
+ * Class <tt>CmdUtils.java</tt> is an utility class
+ * which contains various command line arguments recognizable
+ * by this application, menu texts etc.
  * @author dmv
  * @since 2017 January 21
  */
 public class CmdUtils {
     
+    /** console prompt */
+    public static final String PROMPT;
+    /** maximum number of wrong user input attempts */
     public static final int ATTEMPTS = 10;
-    /* various menu texts */
-    public static final String HELP;
-    public static final String BRIEF_HELP;
-    public static final String RESULTS;
-    public static final String TYPE_ZERO;
-    /* command line keys and their commands (corresponding actions) */
-    public static final Map<String, Consumer<ConsoleApplication>> MAIN_KEYS;
+    /** when in results view, this command triggers replace operation */
+    public static final String DO_COMMAND;
+    /** means do replace without preview */
+    public static final String NO_PREVIEW_COMMAND;
+    /** cancel operation or go back to previous menu */
+    public static final List<String> GO_BACK_COMMANDS;
+    /** commands for showing program help */
+    public static final List<String> HELP_COMMANDS;
+    /** commands for exiting the program */
+    public static final List<String> EXIT_COMMANDS;
+    /** commands to answer yes or true */
+    public static final List<String> TRUE_COMMANDS;
+    /** commands to answer no or false */
+    public static final List<String> FALSE_COMMANDS;
+    /** keys that may precede the path parameter -p, -path */
+    public static final List<String> KEYS_PATH;
+    /** keys that may precede the find parameter -f, -find */
+    public static final List<String> KEYS_FIND;
+    /** keys that may precede the replace parameter */
+    public static final List<String> KEYS_REPLACE;
+    /** keys that may precede the exclusion parameter */
+    public static final List<String> KEYS_EXCLUDE;
+    /** keys that may precede the replace filenames parameter */
+    public static final List<String> KEYS_FILENAMES;
+    /** keys that may precede the scan subfolders parameter */
+    public static final List<String> KEYS_SUBFOLDERS;
+    /** keys that may precede the include name patterns parameter */
+    public static final List<String> KEYS_PATTERNS;
+    /** keys that may precede the charset parameter */
+    public static final List<String> KEYS_CHARSET;
+    /** keys that may precede the name of profile to use parameter */
+    public static final List<String> KEYS_USE_PROFILE;
+    /** keys that may precede the name of profile to save parameter */
+    public static final List<String> KEYS_SAVE_PROFILE;
+    /** main program help */
+    public static final String MAIN_HELP;
+    /** menu with commands for the results view */
+    public static final String MENU_RESULTS_PREVIEW;
+    /** menu with go back commands */
+    public static final String MENU_GO_BACK;
+    /** for single result menu */
+    public static final String UNKNOWN_NAME;
+    /** for single result menu */
+    public static final String RESULTS_FOR;
+    /** for single result menu */
+    public static final String EXCEPTION_CAUSE;
+    /** for single result menu */
+    public static final String MOD_NUMBER;
+    /** for single result menu */
+    public static final String ORIGINAL;
+    /** for single result menu */
+    public static final String MODIFIED;
+    /** for single result menu */
+    public static final String MODIFIED_NAME;
+    /** for single result menu */
+    public static final String NON_MODIFIED_NAME;
+    /** for list of results menu */
+    public static final String RESULTS_ARE;
+    /** for list of results menu */
+    public static final String RESULTS_WITH;
+    /** for list of results menu */
+    public static final String RESULTS_MOD;
+    /** for list of results menu */
+    public static final String RESULTS_EXCEPT;
+    /** common usage character */
+    public static final String NEW_LINE;
+    /** common usage character */
+    public static final String COLON;
+    /** message that max number of input attempts is reached */
+    public static final String TOO_MANY_ATTEMPTS;
+    /** exceptional message for user */
+    public static final String NOTHING_WAS_FOUND;
+    /** exceptional message for user */
+    public static final String RESOURCE_ACCESS;
+    /** main commands and their corresponding actions */
+    public static final Map<String, Consumer<ConsoleApplication>> MAIN_COMMANDS;
+    /** command line keys and their corresponding actions */
     public static final Map<String, 
                              BiFunction<ReplaceFilesProfile, 
                                         String, 
                                         ReplaceFilesProfile>> PARAMETER_KEYS;
     
     static {
-        MAIN_KEYS = fillMainCommands();
+        PROMPT = "\nsnr> ";
+        ResourceBundle bundle = getBundle("console.menu");
+        UNKNOWN_NAME = bundle.getString("menuResultUnknownName");
+        RESULTS_FOR = bundle.getString("menuResultResultsFor");
+        EXCEPTION_CAUSE = bundle.getString("menuResultExceptionCause");
+        MOD_NUMBER = bundle.getString("menuResultModificationNumber");
+        ORIGINAL = bundle.getString("menuResultOriginal");
+        MODIFIED = bundle.getString("menuResultModified");
+        MODIFIED_NAME = bundle.getString("menuResultModifiedName");
+        NON_MODIFIED_NAME = bundle.getString("menuResultNonModifiedName");
+        RESULTS_ARE = bundle.getString("menuResultsResultsAre");
+        RESULTS_WITH = " " + bundle.getString("menuResultsWith");
+        RESULTS_MOD = " " + bundle.getString("menuResultsModifications");
+        RESULTS_EXCEPT = bundle.getString("menuResultsExceptional");
+        NOTHING_WAS_FOUND = bundle.getString("exceptionNothingFound");
+        RESOURCE_ACCESS = bundle.getString("exceptionResourceAccess");
+        NEW_LINE = "\n";
+        COLON = ": ";
+        DO_COMMAND = "do";
+        NO_PREVIEW_COMMAND = "nopreview";
+        TRUE_COMMANDS     = makeListFrom("true", "1", "yes", "y");
+        FALSE_COMMANDS    = makeListFrom("false", "0", "no", "n");
+        GO_BACK_COMMANDS  = makeListFrom("0", "cancel", "c");
+        HELP_COMMANDS     = makeListFrom("help", "h", "/?");
+        EXIT_COMMANDS     = makeListFrom("exit", "quit", "q");
+        KEYS_PATH         = makeListFrom("-p", "-path");
+        KEYS_FIND         = makeListFrom("-f", "-find");
+        KEYS_REPLACE      = makeListFrom("-r", "-replace");
+        KEYS_EXCLUDE      = makeListFrom("-x", "-exclude");
+        KEYS_FILENAMES    = makeListFrom("-fn", "-filenames");
+        KEYS_SUBFOLDERS   = makeListFrom("-sf", "-subfolders");
+        KEYS_PATTERNS     = makeListFrom("-np", "-namepattern");
+        KEYS_CHARSET      = makeListFrom("-cs", "-charset");
+        KEYS_USE_PROFILE  = makeListFrom("-up", "-useprofile");
+        KEYS_SAVE_PROFILE = makeListFrom("-sp", "-saveprofile");
+        MENU_GO_BACK  = format(bundle.getString("menuGoBack"), 
+                               String.join(" or ", GO_BACK_COMMANDS));
+        MENU_RESULTS_PREVIEW  = format(bundle.getString("menuResults"), DO_COMMAND);
+        MAIN_HELP     = format(bundle.getString("mainHelp"),
+                               String.join(" or ", HELP_COMMANDS),
+                               String.join(" or ", EXIT_COMMANDS),
+                               NO_PREVIEW_COMMAND,
+                               String.join(" or ", KEYS_PATH),
+                               String.join(" or ", KEYS_FIND),
+                               String.join(" or ", KEYS_REPLACE),
+                               String.join(" or ", KEYS_EXCLUDE),
+                               String.join(" or ", KEYS_FILENAMES),
+                               String.join(" or ", TRUE_COMMANDS),
+                               String.join(" or ", FALSE_COMMANDS),
+                               String.join(" or ", KEYS_SUBFOLDERS),
+                               String.join(" or ", KEYS_PATTERNS),
+                               String.join(" or ", KEYS_CHARSET),
+                               SearchProfile.defaultCharset.name(),
+                               String.join(" or ", KEYS_USE_PROFILE),
+                               String.join(" or ", KEYS_SAVE_PROFILE));
+        TOO_MANY_ATTEMPTS = bundle.getString("tooManyAttempts");
+        MAIN_COMMANDS  = fillMainCommands();
         PARAMETER_KEYS = fillParamKeys();
-        TYPE_ZERO = makeFrom("Type 0 to go back to previous menu (when no such exists, exit the program) " +
-                             "or type one of the main commands.");
-        RESULTS = makeFrom("Type file's number to see the details or " +
-                           "Type word 'do' without quotes to make replacements.");
-        BRIEF_HELP = makeFrom("Brief usage info (type help again to show full version): ", 
-                        "Escape back slash '\\' characters with another one - like so '\\\\'",
-                        "Put phrases with space characters or if they start with '-' in double quotes " +
-                        "\"-like this one\" to be correctly recognized by a program.",
-                        " ",
-                        "nopreview (skip preview), help (show help), exit (exit program)",
-                        "-p [path to file or folder] -f [what to find in it] " +
-                        "-r [what to put in its place] -x [what to exclude] " +
-                        "-fn [true/false (modify also file name)] " +
-                        "-sf [true/false (include subfolders)] " +
-                        "-np [naming pattern (file's path that will be included in search)]" +
-                        "-cs [name of charset to use in read and write operations] " +
-                        "-pf [name of profile to use] -sp [name of profile to save ] ",
-                        "At least two parameters are required - 'path to the resource' where " +
-                        "to search and 'what to find' in it, these parameters may also be " +
-                        "included in a profile, so it is ok to specify just a profile with them.");
-        HELP = makeFrom("Program usage: ", 
-                        "Escape back slash '\\' characters with another one - like so '\\\\'",
-                        "Put phrases with space characters or if they start with '-' in double quotes " +
-                        "\"-like this one\" to be correctly recognized by a program.",
-                        " ",
-                        "nopreview (skip preview), help (show help), exit (exit program)",
-                        "-p [path to file or folder] -f [what to find in it] " +
-                        "-r [what to put in its place] -x [what to exclude] " +
-                        "-fn [true/false (modify also file name)] " +
-                        "-sf [true/false (include subfolders)] " +
-                        "-np [naming pattern (file's path that will be included in search)]" +
-                        "-cs [name of charset to use in read and write operations] " +
-                        "-pf [name of profile to use] -sp [name of profile to save ] ",
-                        "At least two parameters are required - 'path to the resource' where " +
-                        "to search and 'what to find' in it, these parameters may also be " +
-                        "included in a profile, so it is ok to specify just a profile with them.",
-                        " ",
-                        "Available keys:",
-                        "help, h, /?:",
-                            "Shows this info. This key is expected to be alone on command line.",
-                        "exit, q, /q:",
-                            "Quits the program. This key is expected to be alone on command line.",
-                        "nopreview:",
-                            "If you are certain about results, you may skip 'preview' part, just " +
-                            "put this key at the very beggining of command line. This is a special " +
-                            "case and so this key cannot be saved in a profile.",
-                        "-p -path:",
-                            "Specify a path to the file or folder where to search. " +
-                            "Expected to be a real path to existing resource. Required parameter.",
-                        "-f -find:",
-                            "Specify a phrase that needed to be found in the resource, " +
-                            "must be at least one character long. Required parameter.",
-                        "-r -replace:",
-                            "Specify a phrase that needed to be placed instead of found ones. " +
-                            "It is empty by default, but you may specify it as empty if " + 
-                            "you need to overwrite profile setting.",
-                        "-x -exclude:",
-                            "Specify what need not be replaced, an exclusion that have to has " +
-                            "'what to find' phrase as a part of it. You can specify several exclusions, " +
-                            "just use a key (-x) before each of them. Again, you may write " +
-                            "just the key with the empty space after it if you want to overwrite " +
-                            "profile setting.",
-                        "-fn -filename:",
-                            "Use word true or false to specify if you want to change also " +
-                            "file names with the same rule as for their content. False by default.",
-                        "-sf -subfolders:",
-                            "Use word true or false to specify if you want subfolders to be " +
-                            "scanned through. It is false by default.",
-                        "-np -namepattern:",
-                            "Specify what paths will be included in search and replace operation. " +
-                            "See java.nio.file.FileSystems#getPathMatcher method desciption " +
-                            "of what kind of patterns are supported by this program. " +
-                            "Specify just one pattern per key, there can be several keys in command.",
-                        "-cs -charset:",
-                            "You can specify a Charset name that will be used for reading and writing " +
-                            "file contents. The defaut setting is " + defaultCharset.displayName(),
-                        "-pf -profile:",
-                            "Specify a name of existing profile with or without the file's extension. " +
-                            "If you will also specify other keys after it those keys parameters will " +
-                            "overwrite corresponding settings of a profile. Any key before the profile " +
-                            "will be overwritten by a corresponding profile's setting.",
-                        "-sp -saveprofile:",
-                            "Specify a name under which current keys will be saved as a profile. " +
-                            "This command expected at the very end of command line. Any parameters " +
-                            "appeared after it won't be saved in a profile, it's may be your intention." +
-                            "File's extension will be added automatically. If this key has empty " +
-                            "space following it and there is a profile specified in command then " +
-                            "that profile will be overwritten. If no profile used in a command " +
-                            "then new profile will be saved with auto-generated name. If given " +
-                            "name is the same as some existing profile has (not specified in command) " +
-                            "then you'll be asked for overwritting operation or renaming.");
+    }
+
+    private static List<String> makeListFrom(String...s) {
+        return Collections.unmodifiableList(Arrays.asList(s));
     }
     
-    public static void showPrompt() {
-        System.out.print("snr> ");
+    public static void printPrompt() {
+        System.out.print(PROMPT);
+    }
+    
+    public static void printMainHelp() {
+        System.out.print(MAIN_HELP);
+    }
+    
+    public static void printGoBackMenu() {
+        System.out.print(MENU_GO_BACK);
+    }
+    
+    public static void printTooManyAttempts() {
+        System.out.print(TOO_MANY_ATTEMPTS);
+    }
+    
+    public static boolean isNoPreview(String param) {
+        return param != null ? param.equals(NO_PREVIEW_COMMAND) : false;
     }
 
     public static void exit(ConsoleApplication application) {
@@ -149,13 +205,18 @@ public class CmdUtils {
     
     public static void showMainHelp(ConsoleApplication application) {
         if (application != null && !(application instanceof HelpMenu))
-                application.showMainHelp();
+            application.showMainHelp();
     }
 
     public static String getSingleOperator(String[] args) {
         if (args == null || args.length != 1 || args[0] == null || args[0].length() == 0)
             throw new IllegalArgumentException("Single operator is expected");
         return args[0];
+    }
+    
+    public static BiFunction<ReplaceFilesProfile, String, ReplaceFilesProfile>
+                  getParameterAction(String param) {
+        return PARAMETER_KEYS.get(param);
     }
 
     public static ReplaceFilesProfile setPath(ReplaceFilesProfile profile, String path) {
@@ -198,85 +259,91 @@ public class CmdUtils {
         return null;
     }
     
-    public static void printResult(List<SearchResult> result) {
-        StringBuilder builder = new StringBuilder("Results are:\n");
+    public static String describeResult(SearchResult result) {
+        String filename = UNKNOWN_NAME;
+        String modName = null;
+        if (result.getModifiedName() != null && 
+            result.getModifiedName().getFirst() != null) {
+            filename = result.getModifiedName().getFirst().toString();
+            if (result.getModifiedName().getLast() != null)
+                modName = result.getModifiedName().getLast().toString();
+        }
+        StringBuilder builder = new StringBuilder(RESULTS_FOR + filename);
+        if (modName != null)
+            builder.append(MODIFIED_NAME)
+                   .append(modName);
+        else
+            builder.append(NON_MODIFIED_NAME);
+        builder.append(NEW_LINE);
+        if (result.isExceptional())
+            builder.append(EXCEPTION_CAUSE)
+                   .append(result.getCause())
+                   .append(NEW_LINE);
+        else {
+            builder.append(MOD_NUMBER)
+                   .append(result.numberOfModificationsMade());
+            result.getModifiedContent()
+                  .stream()
+                  .filter(tuple -> tuple.getLast() != null)
+                  .forEach(tuple -> builder.append(ORIGINAL)
+                                           .append(tuple.getFirst())
+                                           .append(MODIFIED)
+                                           .append(tuple.getLast()));
+        }
+        builder.append(NEW_LINE);
+        return builder.toString();
+    }
+    
+    public static String listResults(List<SearchResult> results) {
+        StringBuilder resultsList = new StringBuilder(RESULTS_ARE);
+        List<SearchResult> exceptionalResults = new ArrayList<>();
         int i = 1;
-        List<SearchResult> exceptionals = new ArrayList<>();
-        for (SearchResult r : result) {
-            if (r.isExceptional())
-                exceptionals.add(r);
-            else
-                builder.append(i++)
-                       .append(": ")
-                       .append(r.getModifiedName().getFirst())
-                       .append(" with ")
-                       .append(r.numberOfModificationsMade())
-                       .append(" modifications\n");
+        for (SearchResult result : results) {
+            if (result.isExceptional())
+                exceptionalResults.add(result);
+            else {
+                resultsList.append(i++)
+                            .append(COLON)
+                            .append(result.getModifiedName().getFirst())
+                            .append(RESULTS_WITH)
+                            .append(result.numberOfModificationsMade())
+                            .append(RESULTS_MOD);
+            }
         }
-        if (exceptionals.size() > 0) {
-            builder.append("\nNext results were exceptional:\n");
-            for (SearchResult r : exceptionals)
-                builder.append(i++)
-                       .append(": ")
-                       .append(r.getCause())
-                       .append("\n");
+        if (exceptionalResults.size() > 0) {
+            resultsList.append(RESULTS_EXCEPT);
+            for (SearchResult result : exceptionalResults)
+                resultsList.append(i++)
+                           .append(COLON)
+                           .append(result.getCause())
+                           .append(NEW_LINE);
         }
-        System.out.println(builder);          
-    }
-
-    public static void tellAbout(Exception e) {
-        if (e instanceof AccessResourceException)
-            System.out.println("Something wrong with the resource provided, check if it exists and readable");
-        else if (e instanceof NothingToReplaceException)
-            System.out.println("There is nothing found with given parameters");
-    }
-
-    private static String makeFrom(String... lines) {
-        StringBuilder result = new StringBuilder();
-        Stream.of(lines)
-              .forEach(line -> result.append(line).append("\n"));
-        return result.toString();
+        return resultsList.toString();
     }
 
     private static Map<String, Consumer<ConsoleApplication>> fillMainCommands() {
         Map<String, Consumer<ConsoleApplication>> keys = new HashMap<>();
-        keys.put("exit",  CmdUtils::exit);
-        keys.put("q",     CmdUtils::exit);
-        keys.put("/q",    CmdUtils::exit);
-        keys.put("help",  CmdUtils::showMainHelp);
-        keys.put("h",     CmdUtils::showMainHelp);
-        keys.put("/?",    CmdUtils::showMainHelp);
-        keys.put("0",     CmdUtils::cancel);
-        keys.put("cancel",CmdUtils::cancel);
-        keys.put("c",     CmdUtils::cancel);
-        return keys;
+        EXIT_COMMANDS.forEach(key -> keys.put(key, CmdUtils::exit));
+        HELP_COMMANDS.forEach(key -> keys.put(key, CmdUtils::showMainHelp));
+        GO_BACK_COMMANDS.forEach(key -> keys.put(key, CmdUtils::cancel));
+        return Collections.unmodifiableMap(keys);
     }
 
     private static Map<String, BiFunction<ReplaceFilesProfile, String, 
                                           ReplaceFilesProfile>> fillParamKeys() {
         Map<String, BiFunction<ReplaceFilesProfile, String, 
                                ReplaceFilesProfile>> pkeys = new HashMap<>();
-        pkeys.put("-p",             CmdUtils::setPath);
-        pkeys.put("-path",          CmdUtils::setPath);
-        pkeys.put("-f",             CmdUtils::setToFind);
-        pkeys.put("-find",          CmdUtils::setToFind);
-        pkeys.put("-r",             CmdUtils::setReplaceWith);
-        pkeys.put("-replace",       CmdUtils::setReplaceWith);
-        pkeys.put("-x",             CmdUtils::addExclusion);
-        pkeys.put("-exclude",       CmdUtils::addExclusion);
-        pkeys.put("-fn",            CmdUtils::setFilenames);
-        pkeys.put("-filenames",     CmdUtils::setFilenames);
-        pkeys.put("-sf",            CmdUtils::setSubfolders);
-        pkeys.put("-subfolders",    CmdUtils::setSubfolders);
-        pkeys.put("-np",            CmdUtils::addIncludeNamePattern);
-        pkeys.put("-namepattern",   CmdUtils::addIncludeNamePattern);
-        pkeys.put("-cs",            CmdUtils::setCharset);
-        pkeys.put("-charset",       CmdUtils::setCharset);
-        pkeys.put("-pf",            CmdUtils::useProfile);
-        pkeys.put("-replaceProfile",CmdUtils::useProfile);
-        pkeys.put("-sp",            CmdUtils::saveProfile);
-        pkeys.put("-saveprofile",   CmdUtils::saveProfile);
-        return pkeys;
+        KEYS_PATH.forEach(key -> pkeys.put(key, CmdUtils::setPath));
+        KEYS_FIND.forEach(key -> pkeys.put(key, CmdUtils::setToFind));
+        KEYS_REPLACE.forEach(key -> pkeys.put(key, CmdUtils::setReplaceWith));
+        KEYS_EXCLUDE.forEach(key -> pkeys.put(key, CmdUtils::addExclusion));
+        KEYS_FILENAMES.forEach(key -> pkeys.put(key, CmdUtils::setFilenames));
+        KEYS_SUBFOLDERS.forEach(key -> pkeys.put(key, CmdUtils::setSubfolders));
+        KEYS_PATTERNS.forEach(key -> pkeys.put(key, CmdUtils::addIncludeNamePattern));
+        KEYS_CHARSET.forEach(key -> pkeys.put(key, CmdUtils::setCharset));
+        KEYS_USE_PROFILE.forEach(key -> pkeys.put(key, CmdUtils::useProfile));
+        KEYS_SAVE_PROFILE.forEach(key -> pkeys.put(key, CmdUtils::saveProfile));
+        return Collections.unmodifiableMap(pkeys);
     }
     
     
