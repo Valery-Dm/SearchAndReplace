@@ -288,9 +288,9 @@ public interface ReplaceFilesProfile {
      * {@code Included name patterns} will be combined in one parameter as comma-separated list.
      * {@code Exclusions} are given separately in the end of file.
      * <pre>
-     * Name of a profile
-     * Current_name
-     * Overwrite profile with the same name
+     * -name
+     * Current_profile_name
+     * -overwrite
      * true or false
      * 
      * -path ## required

@@ -27,12 +27,14 @@ public abstract class ReplaceFilesConsoleMenuAbs extends ConsoleMenuAbs {
                                       ConsoleMenu previousMenu) {
         super(mainProgram, previousMenu);
         List<SearchResult> results = getResults(mainProgram);
-        // save normal results first, then exceptional
-        cacheResults(results);
-        // This menu is expected to be shown several times
-        // (going back after single result menus).
-        // So it's better to cache it.
-        resultsMenu = listResults(results);
+        if (results != null) {
+            // save normal results first, then exceptional
+            cacheResults(results);
+            // This menu is expected to be shown several times
+            // (going back after single result menus).
+            // So it's better to cache it.
+            resultsMenu = listResults(results);
+        }
     }
     
     protected abstract List<SearchResult> getResults(ReplaceFilesConsoleApplication mainProgram);
@@ -46,7 +48,15 @@ public abstract class ReplaceFilesConsoleMenuAbs extends ConsoleMenuAbs {
         return (ReplaceFilesConsoleApplication) super.getMainProgram();
     }
     
-    protected void cacheResults(List<SearchResult> results) {
+    protected SearchResult getResult(int number) {
+        if (number < 1 || number > resultsInTotal)
+            throw new IllegalArgumentException("There is no result with number " + number);
+        return number > normalResults.size() ? 
+                        exceptionalResults.get(number - exceptionalShift) :
+                        normalResults.get(number - normalShift);
+    }
+
+    private void cacheResults(List<SearchResult> results) {
         resultsInTotal = results.size();
         normalResults = new ArrayList<>();
         exceptionalResults = new ArrayList<>();
@@ -58,14 +68,6 @@ public abstract class ReplaceFilesConsoleMenuAbs extends ConsoleMenuAbs {
                 normalResults.add(result);
         }
         exceptionalShift = normalResults.size() + normalShift;
-    }
-
-    protected SearchResult getResult(int number) {
-        if (number < 1 || number > resultsInTotal)
-            throw new IllegalArgumentException("There is no result with number " + number);
-        return number > normalResults.size() ? 
-                        exceptionalResults.get(number - exceptionalShift) :
-                        normalResults.get(number - normalShift);
     }
 
 }

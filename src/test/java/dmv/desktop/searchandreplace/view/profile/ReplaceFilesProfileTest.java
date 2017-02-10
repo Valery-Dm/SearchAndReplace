@@ -380,9 +380,9 @@ public abstract class ReplaceFilesProfileTest {
     @Test
     public void testToString() {
         String defaultSettings = createStringFrom(
-                                   "Name of a profile",
+                                   "-name",
                                     "Currently not set",
-                                    "Overwrite profile with the same name",
+                                    "-overwrite",
                                     "false",
                                     "",
                                     "-path ## required",
@@ -417,9 +417,9 @@ public abstract class ReplaceFilesProfileTest {
         target.addExclusion("FindMesuffix");
         
         String appliedSettings = createStringFrom(
-                                    "Name of a profile",
+                                    "-name",
                                     name,
-                                    "Overwrite profile with the same name",
+                                    "-overwrite",
                                     "true",
                                     "",
                                     "-path ## required",

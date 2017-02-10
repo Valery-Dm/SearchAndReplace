@@ -1,6 +1,3 @@
-/**
- * 
- */
 package dmv.desktop.searchandreplace.view.profile;
 
 import static dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils.*;
@@ -30,8 +27,8 @@ public class ReplaceFilesProfileImpl implements ReplaceFilesProfile {
     
     /* Strings for toString method generation */
     private static final String CURRENTLY_NOT_SET = "Currently not set";
-    private static final String OVERWRITE_PROFILE = "\nOverwrite profile with the same name\n";
-    private static final String NAME_OF_A_PROFILE = "Name of a profile\n";
+    private static final String OVERWRITE_PROFILE = "\n-overwrite\n";
+    private static final String NAME_OF_A_PROFILE = "-name\n";
     private static final int longVersion = 1;
     private static final String PATH_KEY = "\n\n" + KEYS_PATH.get(longVersion) + " ## required\n";
     private static final String FIND_KEY = "\n" + KEYS_FIND.get(longVersion) + " ## required\n";

@@ -74,6 +74,9 @@ public class FolderWalker
     @Override
     public void setRootElement(SearchPath folder) {
         Objects.requireNonNull(folder);
+        // TODO check for equality first and do not change
+        // state if the same SearchPath given, change also tests
+        // and javadoc comments
         state = BEFORE_FIND;
         this.folder = folder;
     }

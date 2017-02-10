@@ -12,14 +12,13 @@ import java.util.function.Consumer;
 
 import dmv.desktop.searchandreplace.exception.AccessResourceException;
 import dmv.desktop.searchandreplace.exception.NothingToReplaceException;
-import dmv.desktop.searchandreplace.exception.WrongProfileException;
 import dmv.desktop.searchandreplace.model.SearchPath;
 import dmv.desktop.searchandreplace.model.SearchProfile;
 import dmv.desktop.searchandreplace.model.SearchResult;
 import dmv.desktop.searchandreplace.service.SearchAndReplace;
 import dmv.desktop.searchandreplace.view.consoleapp.menu.ConsoleMenu;
-import dmv.desktop.searchandreplace.view.consoleapp.menu.PreviewResultsMenu;
-import dmv.desktop.searchandreplace.view.consoleapp.menu.ReplaceResultsMenu;
+import dmv.desktop.searchandreplace.view.consoleapp.menu.ProfileMenu;
+import dmv.desktop.searchandreplace.view.consoleapp.utility.CmdUtils;
 import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfile;
 import dmv.desktop.searchandreplace.view.profile.ReplaceFilesProfileImpl;
 
@@ -37,6 +36,10 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
     private boolean replace;
     private boolean exit;
     
+    public ReplaceFilesConsoleApplication() {
+        replaceProfile = new ReplaceFilesProfileImpl();
+    }
+    
     /**
      * Run program from initial command line arguments,
      * just like in a static main method. This could
@@ -44,21 +47,18 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
      * @param args command line arguments
      */
     public void parseCommand(String... args) {
-        replace = false;
-        replaceProfile = new ReplaceFilesProfileImpl();
         try {
             int i = 0;
             if (args[i].charAt(0) != '-') 
                 doMainCommand(args[i++]);
             if (!exit) {
-                collectParameters(args, i);
-                replacer = replaceProfile.createService();
-                ConsoleMenu menu = replace ? new ReplaceResultsMenu(this, null) :
-                                             new PreviewResultsMenu(this, null);
-                menuFlowFrom(menu);
+                CmdUtils.collectParameters(replaceProfile, args, i);
+//                updateService();
+//                ConsoleMenu menu = replace ? new ReplaceResultsMenu(this, null) :
+//                                             new PreviewResultsMenu(this, null);
+//                menuFlowFrom(menu);
+                menuFlowFrom(new ProfileMenu(this, null));
             }
-        } catch (WrongProfileException wpe) {
-            System.out.println(wpe.getMessage());
         } catch (NothingToReplaceException ntpe) {
             System.out.println(NOTHING_WAS_FOUND);
         } catch(AccessResourceException ase) {
@@ -69,28 +69,34 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
         exit();
     }
 
+    public void updateService() {
+        replacer = replaceProfile.createService();
+    }
+
     public SearchAndReplace<SearchPath, SearchProfile, SearchResult> getReplacer() {
         return replacer;
+    }
+    
+    public ReplaceFilesProfile getReplaceProfile() {
+        return replaceProfile;
     }
 
     /* recursively read parameters (may appear single or in pairs) */
     private void collectParameters(String[] args, int i) {
-        if (!exit) {
-            if (i == args.length) return;
-            String key = args[i];
-            if (key.charAt(0) != '-')
-                throw new IllegalArgumentException("A key expected at this position");
-            String param = ++i < args.length ? args[i] : "";
-            // if next word is a key (i.e. parameter was empty)
-            if (param.length() > 0 && param.charAt(0) == '-') {
-                param = "";
-                i--;
-            } 
-            // NPE will be caught in wrapper method
-            PARAMETER_KEYS.get(key)
-                          .apply(replaceProfile, param);
-            collectParameters(args, ++i);
-        }
+        if (i == args.length) return;
+        String key = args[i];
+        if (key.charAt(0) != '-')
+            throw new IllegalArgumentException("A key expected at this position");
+        String param = ++i < args.length ? args[i] : "";
+        // if next word is a key (i.e. parameter was empty)
+        if (param.length() > 0 && param.charAt(0) == '-') {
+            param = "";
+            i--;
+        } 
+        // NPE will be caught in wrapper method
+        PARAMETER_KEYS.get(key)
+                      .apply(replaceProfile, param);
+        collectParameters(args, ++i);
     }
 
     private void doMainCommand(String s) {
@@ -156,6 +162,10 @@ public class ReplaceFilesConsoleApplication implements ConsoleApplication {
 
     public void setReplace() {
         replace = true;
+    }
+    
+    public boolean isReplace() {
+        return replace;
     }
     
     /* Statics */

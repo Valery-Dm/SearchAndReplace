@@ -66,6 +66,10 @@ public class CmdUtils {
     public static final String MENU_RESULTS_PREVIEW;
     /** menu with go back commands */
     public static final String MENU_GO_BACK;
+    /** profile menu with parameter keys */
+    public static final String PROFILE_MENU;
+    /** profile menu with go back commands */
+    public static final String PROFILE_MENU_GO_BACK;
     /** for single result menu */
     public static final String UNKNOWN_NAME;
     /** for single result menu */
@@ -144,10 +148,13 @@ public class CmdUtils {
         KEYS_CHARSET      = makeListFrom("-cs", "-charset");
         KEYS_USE_PROFILE  = makeListFrom("-up", "-useprofile");
         KEYS_SAVE_PROFILE = makeListFrom("-sp", "-saveprofile");
-        MENU_GO_BACK  = format(bundle.getString("menuGoBack"), 
+        MENU_GO_BACK = format(bundle.getString("menuGoBack"), 
                                String.join(" or ", GO_BACK_COMMANDS));
-        MENU_RESULTS_PREVIEW  = format(bundle.getString("menuResults"), DO_COMMAND);
-        MAIN_HELP     = format(bundle.getString("mainHelp"),
+        PROFILE_MENU = format(bundle.getString("menuProfile"));
+        PROFILE_MENU_GO_BACK = format(bundle.getString("menuProfileGoBack"), 
+                               String.join(" or ", GO_BACK_COMMANDS));
+        MENU_RESULTS_PREVIEW = format(bundle.getString("menuResults"), DO_COMMAND);
+        MAIN_HELP = format(bundle.getString("mainHelp"),
                                String.join(" or ", HELP_COMMANDS),
                                String.join(" or ", EXIT_COMMANDS),
                                NO_PREVIEW_COMMAND,
@@ -218,6 +225,24 @@ public class CmdUtils {
                   getParameterAction(String param) {
         return PARAMETER_KEYS.get(param);
     }
+    
+    /* recursively read parameters (may appear single or in pairs) */
+    public static void collectParameters(ReplaceFilesProfile profile, String[] args, int i) {
+        if (i == args.length) return;
+        String key = args[i];
+        if (key.charAt(0) != '-')
+            throw new IllegalArgumentException("A key expected at this position");
+        String param = ++i < args.length ? args[i] : "";
+        // if next word is a key (i.e. parameter was empty)
+        if (param.length() > 0 && param.charAt(0) == '-') {
+            param = "";
+            i--;
+        } 
+        // NPE expected to be caught in caller method
+        PARAMETER_KEYS.get(key)
+                      .apply(profile, param);
+        collectParameters(profile, args, ++i);
+    }
 
     public static ReplaceFilesProfile setPath(ReplaceFilesProfile profile, String path) {
         return profile.setPath(path);
@@ -252,11 +277,11 @@ public class CmdUtils {
     }
 
     public static ReplaceFilesProfile useProfile(ReplaceFilesProfile profile, String name) {
-        return null;
+        return profile.useProfile(name);
     }
 
     public static ReplaceFilesProfile saveProfile(ReplaceFilesProfile profile, String name) {
-        return null;
+        return profile.saveProfie(name);
     }
     
     public static String describeResult(SearchResult result) {
